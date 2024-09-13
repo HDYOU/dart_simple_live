@@ -189,6 +189,7 @@ jobs:
       - name: Rename Android TV APK Name
         if: startsWith(matrix.platform,'android-tv')
         run: |
+          sudo apt-get install rename
           cd ${{ env.projcect_path }}/build/app/outputs/flutter-apk/
           rename 's/app/android-tv/' *.apk
 
