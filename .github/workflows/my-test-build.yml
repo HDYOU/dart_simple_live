@@ -58,7 +58,7 @@ jobs:
         run: |
            echo "projcect_path=simple_live_tv_app" >> $GITHUB_ENV
 
-     - name: Show Projcect Path
+      - name: Show Projcect Path
         run: |
            echo "projcect_path:  ${{ env.projcect_path }}"
 
