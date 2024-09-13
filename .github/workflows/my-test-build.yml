@@ -287,15 +287,23 @@ jobs:
 
 
       #上传至Release
-      - name: Upload Release
-        uses: softprops/action-gh-release@v2
+      # - name: Upload Release
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     tag_name: "${{ fromJson(steps.version.outputs.content).version }}"
+      #     name: "${{ fromJson(steps.version.outputs.content).version }}"
+      #     body: "${{ fromJson(steps.version.outputs.content).version_desc }}"
+      #     prerelease: ${{ fromJson(steps.version.outputs.content).prerelease }}
+      #     token: ${{ secrets.TOKEN }}
+      #     files: ./dist/*
+      - name: Publish Release
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: "${{ fromJson(steps.version.outputs.content).version }}"
           name: "${{ fromJson(steps.version.outputs.content).version }}"
+          tag: "${{ fromJson(steps.version.outputs.content).version }}"
           body: "${{ fromJson(steps.version.outputs.content).version_desc }}"
           prerelease: ${{ fromJson(steps.version.outputs.content).prerelease }}
-          token: ${{ secrets.TOKEN }}
-          files: ./dist/*
+          artifacts: ./dist/*
       #完成
       - run: echo "🍏 This job's status is ${{ job.status }}."
 
