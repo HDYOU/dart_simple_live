@@ -186,6 +186,11 @@ jobs:
           cd ${{ env.projcect_path }}
           flutter build apk --release --split-per-abi
 
+      - name: Rename Android TV APK Name
+        if: startsWith(matrix.platform,'android-tv')
+        run: |
+          ls build/app/outputs/flutter-apk/ | sed 's/app-/android-tv/' | xargs -n2 mv
+
       #打包iOS
       - name: Build IPA
         if: startsWith(matrix.platform,'ios')
@@ -290,3 +295,11 @@ jobs:
           files: ./dist/*
       #完成
       - run: echo "🍏 This job's status is ${{ job.status }}."
+
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 3
