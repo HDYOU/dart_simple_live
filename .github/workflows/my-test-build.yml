@@ -278,6 +278,7 @@ jobs:
         run: |
           mkdir -p dist_2
           find dist -type f | xargs -i mv {} dist_2
+          ls dist_2
 
       #读取版本信息
       - name: Read version
@@ -292,23 +293,23 @@ jobs:
 
 
       #上传至Release
-      # - name: Upload Release
-      #   uses: softprops/action-gh-release@v2
-      #   with:
-      #     tag_name: "${{ fromJson(steps.version.outputs.content).version }}"
-      #     name: "${{ fromJson(steps.version.outputs.content).version }}"
-      #     body: "${{ fromJson(steps.version.outputs.content).version_desc }}"
-      #     prerelease: ${{ fromJson(steps.version.outputs.content).prerelease }}
-      #     token: ${{ secrets.TOKEN }}
-      #     files: ./dist/*
-      - name: Publish Release
-        uses: ncipollo/release-action@v1
+      - name: Upload Release
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: "${{ fromJson(steps.version.outputs.content).version }}"
           name: "${{ fromJson(steps.version.outputs.content).version }}"
-          tag: "${{ fromJson(steps.version.outputs.content).version }}"
           body: "${{ fromJson(steps.version.outputs.content).version_desc }}"
           prerelease: ${{ fromJson(steps.version.outputs.content).prerelease }}
-          artifacts: ./dist_2/*
+          token: ${{ secrets.TOKEN }}
+          files: ./dist_2/*
+      # - name: Publish Release
+      #   uses: ncipollo/release-action@v1
+      #   with:
+      #     name: "${{ fromJson(steps.version.outputs.content).version }}"
+      #     tag: "${{ fromJson(steps.version.outputs.content).version }}"
+      #     body: "${{ fromJson(steps.version.outputs.content).version_desc }}"
+      #     prerelease: ${{ fromJson(steps.version.outputs.content).prerelease }}
+      #     artifacts: ./dist_2/*
       #完成
       - run: echo "🍏 This job's status is ${{ job.status }}."
 
