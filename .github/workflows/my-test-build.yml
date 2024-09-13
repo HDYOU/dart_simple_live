@@ -45,7 +45,8 @@ jobs:
           - platform: macos
             os: macos-13
             arch: amd64
-          - platform: macos
+
+          # - platform: macos
             # os: macos-latest
             # arch: arm64
 
