@@ -277,7 +277,7 @@ jobs:
       - name: Move File
         run: |
           mkdir -p dist_2
-          find dist -type f -exec mv {} dist_2
+          find dist -type f | xargs -i mv {} dist_2
 
       #读取版本信息
       - name: Read version
