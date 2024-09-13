@@ -121,6 +121,7 @@ jobs:
           link-to-sdk: true
 
       - name: Download Android keystore
+        id: android_keystore
         if: startsWith(matrix.platform,'android')
         uses: timheuer/base64-to-file@v1.2
         with:
@@ -135,7 +136,7 @@ jobs:
           echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> ${{ env.projcect_path }}/android/local.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> ${{ env.projcect_path }}/android/local.properties
           
-          echo "storeFile=${{ steps.android_tv_keystore.outputs.filePath }}" > ${{ env.projcect_path }}/android/key.properties
+          echo "storeFile=${{ steps.android_keystore.outputs.filePath }}" > ${{ env.projcect_path }}/android/key.properties
           echo "storePassword=${{ secrets.KEY_ALIAS }}" >> ${{ env.projcect_path }}/android/key.properties
           echo "keyPassword=${{ secrets.STORE_PASSWORD }}" >> ${{ env.projcect_path }}/android/key.properties
           echo "keyAlias=${{ secrets.KEY_PASSWORD }}" >> ${{ env.projcect_path }}/android/key.properties
