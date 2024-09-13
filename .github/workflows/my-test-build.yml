@@ -111,10 +111,16 @@ jobs:
       - name: Setup Android Signing
         if: startsWith(matrix.platform,'android')
         run: |
+          # key
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > ${{ env.projcect_path }}/android/app/keystore.jks
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> ${{ env.projcect_path }}/android/local.properties
           echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> ${{ env.projcect_path }}/android/local.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> ${{ env.projcect_path }}/android/local.properties
+          
+          echo "storeFile=${{ steps.android_tv_keystore.outputs.filePath }}" > ${{ env.projcect_path }}/android/key.properties
+          echo "storePassword=${{ secrets.TV_STORE_PASSWORD }}" >> ${{ env.projcect_path }}/android/key.properties
+          echo "keyPassword=${{ secrets.TV_KEY_PASSWORD }}" >> ${{ env.projcect_path }}/android/key.properties
+          echo "keyAlias=${{ secrets.TV_KEY_ALIAS }}" >> ${{ env.projcect_path }}/android/key.properties
 
 
       - name: Setup Flutter
