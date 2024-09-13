@@ -125,7 +125,7 @@ jobs:
         uses: timheuer/base64-to-file@v1.2
         with:
           fileName: keystore.jks
-          encodedString: ${{ secrets.TV_KEYSTORE_BASE64 }}
+          encodedString: ${{ secrets.KEYSTORE_BASE64 }}
       - name: Setup Android Signing
         if: startsWith(matrix.platform,'android')
         run: |
