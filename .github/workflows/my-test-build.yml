@@ -66,6 +66,18 @@ jobs:
         run: |
            echo "projcect_path:  ${{ env.projcect_path }}"
 
+
+      - name: Setup Android SDK
+        if: startsWith(matrix.platform,'android')
+        run: |
+          # 后台运行
+          nohup ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3" > ~/out.txt 2>&1 &
+          nohup ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;35.0.2" > ~/out.txt 2>&1 &
+          nohup ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;35.1.20" > ~/out.txt 2>&1 &
+          nohup ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;26.1.1" > ~/out.txt 2>&1 &
+          nohup ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3" > ~/out.txt 2>&1 &
+
+
       - name: Setup Mingw64
         if: startsWith(matrix.platform,'windows')
         uses: msys2/setup-msys2@v2
@@ -108,6 +120,12 @@ jobs:
           add-to-path: true
           link-to-sdk: true
 
+      - name: Download Android keystore
+        if: startsWith(matrix.platform,'android')
+        uses: timheuer/base64-to-file@v1.2
+        with:
+          fileName: keystore.jks
+          encodedString: ${{ secrets.TV_KEYSTORE_BASE64 }}
       - name: Setup Android Signing
         if: startsWith(matrix.platform,'android')
         run: |
@@ -118,9 +136,9 @@ jobs:
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> ${{ env.projcect_path }}/android/local.properties
           
           echo "storeFile=${{ steps.android_tv_keystore.outputs.filePath }}" > ${{ env.projcect_path }}/android/key.properties
-          echo "storePassword=${{ secrets.TV_STORE_PASSWORD }}" >> ${{ env.projcect_path }}/android/key.properties
-          echo "keyPassword=${{ secrets.TV_KEY_PASSWORD }}" >> ${{ env.projcect_path }}/android/key.properties
-          echo "keyAlias=${{ secrets.TV_KEY_ALIAS }}" >> ${{ env.projcect_path }}/android/key.properties
+          echo "storePassword=${{ secrets.KEY_ALIAS }}" >> ${{ env.projcect_path }}/android/key.properties
+          echo "keyPassword=${{ secrets.STORE_PASSWORD }}" >> ${{ env.projcect_path }}/android/key.properties
+          echo "keyAlias=${{ secrets.KEY_PASSWORD }}" >> ${{ env.projcect_path }}/android/key.properties
 
 
       - name: Setup Flutter
