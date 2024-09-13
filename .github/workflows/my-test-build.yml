@@ -32,19 +32,19 @@ jobs:
         include:
           - platform: android
             os: ubuntu-latest
-          - platform: android-tv
-            os: ubuntu-latest
-          - platform: ios
-            os: macos-latest
-          - platform: windows
-            os: windows-latest
-            arch: amd64
-          - platform: linux
-            os: ubuntu-latest
-            arch: amd64
-          - platform: macos
-            os: macos-13
-            arch: amd64
+          # - platform: android-tv
+          #   os: ubuntu-latest
+          # - platform: ios
+          #   os: macos-latest
+          # - platform: windows
+          #   os: windows-latest
+          #   arch: amd64
+          # - platform: linux
+          #   os: ubuntu-latest
+          #   arch: amd64
+          # - platform: macos
+          #   os: macos-13
+          #   arch: amd64
           # - platform: macos
             # os: macos-latest
             # arch: arm64
@@ -274,6 +274,11 @@ jobs:
           pattern: artifact-*
           merge-multiple: true
 
+      - name: Move File
+        run: |
+          mkdir -p dist_2
+          find dist -type f | xargs -i '{}' mv {} dist_2
+
       #读取版本信息
       - name: Read version
         id: version
@@ -303,7 +308,7 @@ jobs:
           tag: "${{ fromJson(steps.version.outputs.content).version }}"
           body: "${{ fromJson(steps.version.outputs.content).version_desc }}"
           prerelease: ${{ fromJson(steps.version.outputs.content).prerelease }}
-          artifacts: ./dist/*
+          artifacts: ./dist_2/*
       #完成
       - run: echo "🍏 This job's status is ${{ job.status }}."
 
