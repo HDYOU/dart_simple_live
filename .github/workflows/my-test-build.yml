@@ -30,8 +30,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - platform: android
-            os: ubuntu-latest
+          # - platform: android
+          #   os: ubuntu-latest
           # - platform: android-tv
           #   os: ubuntu-latest
           # - platform: ios
@@ -39,8 +39,8 @@ jobs:
           # - platform: windows
           #   os: windows-latest
           #   arch: amd64
-          # - platform: linux
-          #   os: ubuntu-latest
+          - platform: linux
+            os: ubuntu-latest
           #   arch: amd64
           # - platform: macos
           #   os: macos-13
@@ -277,7 +277,7 @@ jobs:
       - name: Move File
         run: |
           mkdir -p dist_2
-          find dist -type f | xargs -i '{}' mv {} dist_2
+          find dist -type f -exec mv {} dist_2
 
       #读取版本信息
       - name: Read version
