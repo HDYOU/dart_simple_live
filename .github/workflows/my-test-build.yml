@@ -189,6 +189,7 @@ jobs:
       - name: Rename Android TV APK Name
         if: startsWith(matrix.platform,'android-tv')
         run: |
+          cd ${{ env.projcect_path }}
           ls build/app/outputs/flutter-apk/ | sed 's/app-/android-tv/' | xargs -n2 mv
 
       #打包iOS
