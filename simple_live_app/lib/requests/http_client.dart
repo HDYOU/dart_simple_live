@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:simple_live_app/requests/custom_io_http_client_adapter.dart';
 import 'package:simple_live_app/requests/custom_log_interceptor.dart';
 import 'package:simple_live_app/requests/http_error.dart';
 
@@ -20,6 +21,7 @@ class HttpClient {
       ),
     );
     dio.interceptors.add(CustomLogInterceptor());
+    dio.httpClientAdapter = CustomIOHttpClientAdapter.instance;
   }
 
   /// Get请求，返回String
