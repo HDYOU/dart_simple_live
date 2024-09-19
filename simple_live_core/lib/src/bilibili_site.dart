@@ -15,7 +15,7 @@ import 'package:simple_live_core/src/model/live_room_detail.dart';
 import 'package:simple_live_core/src/model/live_play_quality.dart';
 import 'package:simple_live_core/src/model/live_category_result.dart';
 
-class BiliBiliSite implements LiveSite {
+class BiliBiliSite extends LiveSite {
   @override
   String id = "bilibili";
 

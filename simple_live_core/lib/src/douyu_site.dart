@@ -16,7 +16,7 @@ import 'package:simple_live_core/src/model/live_play_quality.dart';
 import 'package:simple_live_core/src/model/live_category_result.dart';
 import 'package:html_unescape/html_unescape.dart';
 
-class DouyuSite implements LiveSite {
+class DouyuSite extends LiveSite {
   @override
   String id = "douyu";
 
@@ -356,6 +356,118 @@ class DouyuSite implements LiveSite {
       {required String roomId}) {
     //尚不支持
     return Future.value([]);
+  }
+
+  @override
+  bool isSupportBatchUpdateLiveStatus() {
+    return true;
+  }
+
+  @override
+  Future<List<LiveRoomDetail>> getLiveRoomDetailList(
+      {required List<LiveRoomDetail> list}) async {
+    if (list.isEmpty) {
+      return list;
+    }
+
+    /// 分页获取，每页 20 个
+    var size = 20;
+    var futureList = <Future<List<LiveRoomDetail>>>[];
+    for (var i = 0; i < list.length; i += size) {
+      var end = min(i + size, list.length);
+      var subList = list.sublist(i, end);
+      var future = getLiveRoomDetailListPart(list: subList);
+      futureList.add(future);
+    }
+    final rooms = await Future.wait(futureList);
+    return rooms.expand((e) => e).toList();
+  }
+
+  Future<List<LiveRoomDetail>> getLiveRoomDetailListPart(
+      {required List<LiveRoomDetail> list}) async {
+    if (list.isEmpty) {
+      return list;
+    }
+    var idList = list.map((room) => room.roomId!).toList();
+    // , (urlencode == >) %2C
+    var rids = idList.join(",");
+
+    try {
+      var result = await HttpClient.instance.postJson(
+          "https://apiv2.douyucdn.cn/Livenc/UserRelation/getFollowRoomListByRid",
+          queryParameters: {},
+          data: {"rids": rids},
+          formUrlEncoded: true,
+          header: {
+            'referer': 'https://www.douyu.com/',
+            'content-type': 'application/x-www-form-urlencoded',
+            'user-agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43',
+          });
+
+      // SmartDialog.showToast(result, displayTime: const Duration(seconds: 45));
+      // SmartDialog.showToast(result);
+      List roomList;
+      if (result is String) {
+        roomList = json.decode(result)["data"]["room_list"];
+      } else {
+        roomList = result["data"]["room_list"];
+      }
+
+      List<LiveRoomDetail> rsList = [];
+      DateTime now = DateTime.now();
+
+      // 格式化日期为 "年月日" 240917
+      // String formattedDate = DateFormat('yyMMdd').format(now);
+      var yy = now.year.toString().substring(2);
+      var mm = now.month.toString().padLeft(2, "0");
+      var dd = now.day.toString().padLeft(2, "0");
+      var formattedDate = yy + mm + dd;
+
+      /// https://rpic.douyucdn.cn/asrpic/240917/9999_src_1453.avif/dy1
+      RegExp exp = RegExp(r'/asrpic/(\d{6})/');
+
+      for (var roomInfo in roomList) {
+        var isLiving = roomInfo["show_status"] == 1;
+
+        bool isRecord = false;
+        if (isLiving) {
+          /// 通过图片日期判断是否录播
+          isRecord = true;
+          var roomSrc = roomInfo["room_src"].toString();
+          var allMatches = exp.allMatches(roomSrc);
+          for (var value in allMatches) {
+            var picDate = value.group(1);
+            if (formattedDate == picDate) {
+              isRecord = false;
+            }
+          }
+        }
+
+        var tmp = LiveRoomDetail(
+          cover: roomInfo["room_pic"].toString(),
+          online: int.tryParse(roomInfo["hn"].toString()) ?? 0,
+          roomId: roomInfo["room_id"].toString(),
+          title: roomInfo["room_name"].toString(),
+          userName: roomInfo["nickname"].toString(),
+          userAvatar: roomInfo["avatar"].toString(),
+          introduction: roomInfo["close_notice"].toString(),
+          notice: roomInfo["close_notice"].toString(),
+          status: roomInfo["show_status"] == 1,
+          danmakuData: roomInfo["room_id"].toString(),
+          //data: await getPlayArgs(crptext, roomInfo["room_id"].toString()),
+          url: "https://www.douyu.com/${roomInfo["room_id"].toString()}",
+          isRecord: isRecord,
+        );
+        rsList.add(tmp);
+      }
+      return rsList;
+    } catch (e) {
+      // for (var liveRoom in list) {
+      //   liveRoom.status = false;
+      // }
+      return list;
+    }
   }
 }
 

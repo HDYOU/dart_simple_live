@@ -15,7 +15,7 @@ import 'package:simple_live_core/src/model/live_play_quality.dart';
 import 'package:simple_live_core/src/model/live_category_result.dart';
 import 'package:crypto/crypto.dart';
 
-class HuyaSite implements LiveSite {
+class HuyaSite extends LiveSite {
   final String kUserAgent =
       "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36 Edg/117.0.0.0";
 

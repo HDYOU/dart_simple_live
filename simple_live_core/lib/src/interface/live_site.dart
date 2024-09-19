@@ -86,4 +86,14 @@ class LiveSite {
       {required String roomId}) {
     return Future.value([]);
   }
+
+  /// 是否支持批量更新房间
+  bool isSupportBatchUpdateLiveStatus() {
+    return false;
+  }
+
+  /// 批量更新房间
+  Future<List<LiveRoomDetail>> getLiveRoomDetailList({required List<LiveRoomDetail> list}) {
+    return Future.value(list);
+  }
 }

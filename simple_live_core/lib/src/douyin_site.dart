@@ -5,7 +5,7 @@ import 'package:simple_live_core/simple_live_core.dart';
 import 'package:simple_live_core/src/common/convert_helper.dart';
 import 'package:simple_live_core/src/common/http_client.dart';
 
-class DouyinSite implements LiveSite {
+class DouyinSite extends LiveSite {
   @override
   String id = "douyin";
 
