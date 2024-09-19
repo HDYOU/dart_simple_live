@@ -2,6 +2,7 @@ import 'package:simple_live_core/src/common/core_error.dart';
 import 'package:dio/dio.dart';
 
 import 'custom_interceptor.dart';
+import 'custom_io_http_client_adapter.dart';
 
 class HttpClient {
   static HttpClient? _httpUtil;
@@ -21,6 +22,7 @@ class HttpClient {
       ),
     );
     dio.interceptors.add(CustomInterceptor());
+    dio.httpClientAdapter = CustomIOHttpClientAdapter.instance;
   }
 
   /// Get请求，返回String
