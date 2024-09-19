@@ -365,9 +365,9 @@ class DouyuSite extends LiveSite {
 
   @override
   Future<List<LiveRoomDetail>> getLiveRoomDetailList(
-      {required List<LiveRoomDetail> list}) async {
+      {required List<String> list}) async {
     if (list.isEmpty) {
-      return list;
+      return List.empty();
     }
 
     /// 分页获取，每页 20 个
@@ -384,13 +384,12 @@ class DouyuSite extends LiveSite {
   }
 
   Future<List<LiveRoomDetail>> getLiveRoomDetailListPart(
-      {required List<LiveRoomDetail> list}) async {
+      {required List<String> list}) async {
     if (list.isEmpty) {
-      return list;
+      return List.empty();
     }
-    var idList = list.map((room) => room.roomId!).toList();
     // , (urlencode == >) %2C
-    var rids = idList.join(",");
+    var rids = list.join(",");
 
     try {
       var result = await HttpClient.instance.postJson(
@@ -466,7 +465,8 @@ class DouyuSite extends LiveSite {
       // for (var liveRoom in list) {
       //   liveRoom.status = false;
       // }
-      return list;
+      // throw e;
+      return Future.value([]);
     }
   }
 }

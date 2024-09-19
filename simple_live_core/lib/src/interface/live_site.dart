@@ -93,7 +93,7 @@ class LiveSite {
   }
 
   /// 批量更新房间
-  Future<List<LiveRoomDetail>> getLiveRoomDetailList({required List<LiveRoomDetail> list}) {
-    return Future.value(list);
+  Future<List<LiveRoomDetail>> getLiveRoomDetailList({required List<String> list}) {
+    return Future.value([]);
   }
 }

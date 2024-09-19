@@ -15,6 +15,7 @@ import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/models/db/follow_user.dart';
 import 'package:simple_live_app/services/db_service.dart';
+import 'package:simple_live_app/services/update_room_util.dart';
 
 class FollowService extends GetxService {
   StreamSubscription<dynamic>? subscription;
@@ -80,6 +81,15 @@ class FollowService extends GetxService {
   }
 
   void startUpdateStatus() async {
+    updatedCount = 0;
+    updating.value = true;
+
+    await UpdateRoomUtil.updateRoomList(followList);
+    filterData();
+    updating.value = false;
+  }
+
+  void startUpdateStatus2() async {
     updatedCount = 0;
     updating.value = true;
 
