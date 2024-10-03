@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:simple_live_core/src/common/core_error.dart';
 import 'package:dio/dio.dart';
 
@@ -23,6 +25,7 @@ class HttpClient {
     );
     dio.interceptors.add(CustomInterceptor());
     dio.httpClientAdapter = CustomIOHttpClientAdapter.instance;
+    HttpOverrides.global = GlobalHttpOverrides();
   }
 
   /// Get请求，返回String
