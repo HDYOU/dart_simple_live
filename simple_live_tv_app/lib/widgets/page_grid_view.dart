@@ -42,18 +42,18 @@ class PageGridView extends StatelessWidget {
             crossAxisSpacing: crossAxisSpacing,
             mainAxisSpacing: mainAxisSpacing,
           ),
-          Offstage(
-            offstage: !pageController.pageEmpty.value,
+          Visibility(
+            visible: pageController.pageEmpty.value,
             child: AppEmptyWidget(
               onRefresh: () => pageController.refreshData(),
             ),
           ),
-          Offstage(
-            offstage: !(showPageLoadding && pageController.pageLoadding.value),
+          Visibility(
+            visible: !!(showPageLoadding && pageController.pageLoadding.value),
             child: const AppLoaddingWidget(),
           ),
-          Offstage(
-            offstage: !pageController.pageError.value,
+          Visibility(
+            visible: pageController.pageError.value,
             child: AppErrorWidget(
               errorMsg: pageController.errorMsg.value,
               onRefresh: () => pageController.refreshData(),

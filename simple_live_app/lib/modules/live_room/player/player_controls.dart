@@ -235,8 +235,8 @@ Widget buildFullControls(
                       color: Colors.white,
                     ),
                   ),
-                  Offstage(
-                    offstage: controller.showDanmakuState.value,
+                  Visibility(
+                    visible: !controller.showDanmakuState.value,
                     child: IconButton(
                       onPressed: () => controller.showDanmakuState.value =
                           !controller.showDanmakuState.value,
@@ -247,8 +247,8 @@ Widget buildFullControls(
                       ),
                     ),
                   ),
-                  Offstage(
-                    offstage: !controller.showDanmakuState.value,
+                  Visibility(
+                    visible: !controller.showDanmakuState.value,
                     child: IconButton(
                       onPressed: () => controller.showDanmakuState.value =
                           !controller.showDanmakuState.value,
@@ -350,8 +350,8 @@ Widget buildFullControls(
           ),
         ),
         Obx(
-          () => Offstage(
-            offstage: !controller.showGestureTip.value,
+          () => Visibility(
+            visible: controller.showGestureTip.value,
             child: Center(
               child: Container(
                 padding: const EdgeInsets.all(12),
@@ -468,8 +468,8 @@ Widget buildControls(
                     color: Colors.white,
                   ),
                 ),
-                Offstage(
-                  offstage: controller.showDanmakuState.value,
+                Visibility(
+                  visible: !controller.showDanmakuState.value,
                   child: IconButton(
                     onPressed: () => controller.showDanmakuState.value =
                         !controller.showDanmakuState.value,
@@ -480,8 +480,8 @@ Widget buildControls(
                     ),
                   ),
                 ),
-                Offstage(
-                  offstage: !controller.showDanmakuState.value,
+                Visibility(
+                  visible: controller.showDanmakuState.value,
                   child: IconButton(
                     onPressed: () => controller.showDanmakuState.value =
                         !controller.showDanmakuState.value,
@@ -519,8 +519,8 @@ Widget buildControls(
                     ),
                   ),
                 ),
-                Offstage(
-                  offstage: isPortrait,
+                Visibility(
+                  visible: isPortrait,
                   child: TextButton(
                     onPressed: () {
                       controller.showQualitySheet();
@@ -534,8 +534,8 @@ Widget buildControls(
                     ),
                   ),
                 ),
-                Offstage(
-                  offstage: isPortrait,
+                Visibility(
+                  visible: isPortrait,
                   child: TextButton(
                     onPressed: () {
                       controller.showPlayUrlsSheet();
@@ -574,8 +574,8 @@ Widget buildControls(
         ),
       ),
       Obx(
-        () => Offstage(
-          offstage: !controller.showGestureTip.value,
+        () => Visibility(
+          visible: controller.showGestureTip.value,
           child: Center(
             child: Container(
               padding: const EdgeInsets.all(12),
@@ -608,8 +608,8 @@ Widget buildDanmuView(VideoState videoState, LiveRoomController controller) {
     top: padding.top,
     bottom: padding.bottom,
     child: Obx(
-      () => Offstage(
-        offstage: !controller.showDanmakuState.value,
+      () => Visibility(
+        visible: controller.showDanmakuState.value,
         child: Padding(
           padding: controller.fullScreenState.value
               ? EdgeInsets.only(

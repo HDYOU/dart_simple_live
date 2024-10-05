@@ -38,8 +38,8 @@ class FollowUserItem extends StatelessWidget {
             WidgetSpan(
               alignment: ui.PlaceholderAlignment.middle,
               child: Obx(
-                () => Offstage(
-                  offstage: item.liveStatus.value == 0,
+                () => Visibility(
+                  visible: item.liveStatus.value == 0,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

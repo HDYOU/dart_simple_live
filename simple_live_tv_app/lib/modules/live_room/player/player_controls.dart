@@ -257,8 +257,8 @@ Widget buildDanmuView(VideoState videoState, LiveRoomController controller) {
     top: padding.top,
     bottom: padding.bottom,
     child: Obx(
-      () => Offstage(
-        offstage: !controller.showDanmakuState.value,
+      () => Visibility(
+        visible: controller.showDanmakuState.value,
         child: Padding(
           padding: controller.fullScreenState.value
               ? EdgeInsets.only(
