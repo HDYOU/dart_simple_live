@@ -10,11 +10,30 @@ pluginManagement {
 
     includeBuild("${settings.ext.flutterSdkPath}/packages/flutter_tools/gradle")
 
-    plugins {
-        id "dev.flutter.flutter-gradle-plugin" version "1.0.0" apply false
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        maven { url 'https://maven.aliyun.com/repository/public'}
+        maven { url 'https://maven.aliyun.com/repository/google'} //替换google()
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
     }
 }
 
+plugins {
+    id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+    id "com.android.application" version "7.3.0" apply false
+    id "org.jetbrains.kotlin.android" version "1.8.22" apply false
+}
+
 include ":app"
+
+gradle.beforeProject { project ->
+    if (project.name == "flutter_inappwebview_android") {
+        project.afterEvaluate {
+            if (project.hasProperty("android")) {
+                project.android.buildTypes.release.minifyEnabled = false
+            }
+        }
+    }
+}
 
 apply from: "${settings.ext.flutterSdkPath}/packages/flutter_tools/gradle/app_plugin_loader.gradle"
