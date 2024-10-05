@@ -66,14 +66,14 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   RxList<LivePlayQuality> qualites = RxList<LivePlayQuality>();
 
   /// 当前清晰度
-  var currentQuality = -1;
+  var currentQuality = 0;
   var currentQualityInfo = "".obs;
 
   /// 线路数据
   RxList<String> playUrls = RxList<String>();
 
   /// 当前线路
-  var currentLineIndex = -1;
+  var currentLineIndex = 0;
   var currentLineInfo = "".obs;
 
   /// 退出倒计时
@@ -333,7 +333,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   /// 初始化播放器
   void getPlayQualites() async {
     qualites.clear();
-    currentQuality = -1;
+    currentQuality = 0;
 
     try {
       var playQualites =
@@ -382,7 +382,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     playUrls.clear();
     currentQualityInfo.value = qualites[currentQuality].quality;
     currentLineInfo.value = "";
-    currentLineIndex = -1;
+    currentLineIndex = 0;
     var playUrl = await site.liveSite
         .getPlayUrls(detail: detail.value!, quality: qualites[currentQuality]);
     if (playUrl.isEmpty) {
