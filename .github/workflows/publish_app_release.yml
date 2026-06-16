@@ -86,19 +86,53 @@ jobs:
           cd simple_live_app
           flutter build apk --release
 
-      - name: Rename APK for release
+      - name: Rename all split APKs & output apk list
         id: apk_asset
         shell: bash
+        env:
+          APP_VERSION: ${{ steps.app_version.outputs.app_version }}
         run: |
-          asset_path="simple_live_app/build/app/outputs/flutter-apk/simple_live_app-${{ steps.app_version.outputs.app_version }}-android.apk"
-          cp simple_live_app/build/app/outputs/flutter-apk/app-release.apk "$asset_path"
-          echo "asset_path=$asset_path" >> "$GITHUB_OUTPUT"
+          APK_DIR="simple_live_app/build/app/outputs/flutter-apk"
+          cd "$APK_DIR"
+          apk_files=()
+          # 遍历所有 app-*.apk 文件批量重命名
+          for src in app-*.apk; do
+            # 替换前缀 app- 为 simple_live_app-${APP_VERSION}-
+            dst="simple_live_app-${APP_VERSION}-${src#app-}"
+            mv "$src" "$dst"
+            echo "Renamed: $src -> $dst"
+            apk_files+=("$dst")
+          done
+          # 输出目录 & 所有apk文件名逗号分隔
+          echo "asset_root=$APK_DIR" >> "$GITHUB_OUTPUT"
+          echo "apk_list=${apk_files[*]}" >> "$GITHUB_OUTPUT"
 
-      - name: Upload APK to Artifacts
+      - name: Upload arm64-v8a APK to Artifacts
+        uses: actions/upload-artifact@v4
+        if: ${{ contains(steps.apk_asset.outputs.apk_list, 'arm64-v8a') }}
+        with:
+          name: android-arm64-v8a
+          path: ${{ steps.apk_asset.outputs.asset_root }}/*arm64-v8a*.apk
+          
+      - name: Upload armeabi-v7a APK to Artifacts
+        uses: actions/upload-artifact@v4
+        if: ${{ contains(steps.apk_asset.outputs.apk_list, 'armeabi-v7a') }}
+        with:
+          name: android-armeabi-v7a
+          path: ${{ steps.apk_asset.outputs.asset_root }}/*armeabi-v7a*.apk
+          
+      - name: Upload x86_64 APK to Artifacts
+        uses: actions/upload-artifact@v4
+        if: ${{ contains(steps.apk_asset.outputs.apk_list, 'x86_64') }}
+        with:
+          name: android-x86_64
+          path: ${{ steps.apk_asset.outputs.asset_root }}/*x86_64*.apk
+          
+      - name: Upload All APK to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: android
-          path: ${{ steps.apk_asset.outputs.asset_path }}
+          name: android-all-apks
+          path: ${{ steps.apk_asset.outputs.asset_root }}/*.apk
 
       - name: Upload Release
         if: ${{ inputs.upload_release && steps.ref_info.outputs.is_tag == 'true' }}
@@ -110,6 +144,6 @@ jobs:
           prerelease: ${{ contains(steps.ref_info.outputs.ref_name, 'beta') || contains(steps.ref_info.outputs.ref_name, 'alpha') || contains(steps.ref_info.outputs.ref_name, 'pre') || contains(steps.ref_info.outputs.ref_name, 'next') || contains(steps.ref_info.outputs.ref_name, 'local') }}
           token: ${{ github.token }}
           fail_on_unmatched_files: false
-          files: ${{ steps.apk_asset.outputs.asset_path }}
+          files: ${{ steps.apk_asset.outputs.asset_root }}/*.apk
 
       - run: echo "Android job status is ${{ job.status }}."

@@ -40,6 +40,17 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
+    
+    // ========== 新增：多架构拆分 + 自动生成合并通用包 ==========
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            // 需要哪些CPU架构就填哪些，按需删减
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true // 开启后自动输出包含全部架构的合并包
+        }
+    }
 
     signingConfigs {
         if (hasReleaseKeystore) {
