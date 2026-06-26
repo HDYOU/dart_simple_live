@@ -104,6 +104,14 @@ class SignalRService {
     );
   }
 
+  static bool isValidProxyConfig(String value) {
+    final text = value.trim();
+    if (text.isEmpty || text.toLowerCase() == kDirectProxyValue) {
+      return true;
+    }
+    return _normalizeProxyAddress(text) != null;
+  }
+
   Future<void> connect() async {
     try {
       await disconnect();

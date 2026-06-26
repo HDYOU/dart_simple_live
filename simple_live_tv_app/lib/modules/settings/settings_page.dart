@@ -828,18 +828,14 @@ class SettingsPage extends GetView<SettingsController> {
             focusNode: AppFocusNode(),
             title: "抖音账号",
             subtitle: DouyinAccountService.instance.hasCookie.value
-                ? "已同步 Cookie，可用于抖音搜索"
-                : "TV 端请从手机/电脑端同步网页登录 Cookie",
+                ? "已配置 Cookie，可用于抖音搜索和大批量刷新"
+                : "可手动粘贴，或从手机/电脑端同步抖音 Cookie",
             leading: Image.asset(
               "assets/images/douyin.png",
               width: 64.w,
               height: 64.w,
             ),
-            onTap: () {
-              SmartDialog.showToast(
-                "请先在手机/电脑端完成抖音网页登录，再通过局域网同步里的“同步抖音账号”发送到 TV",
-              );
-            },
+            onTap: controller.douyinTap,
           ),
         )
       ],
@@ -847,30 +843,32 @@ class SettingsPage extends GetView<SettingsController> {
   }
 
   Widget buildAbout() {
-    return ListView(
-      padding: AppStyle.edgeInsetsA48,
-      children: [
-        HighlightListTile(
-          focusNode: controller.versionFocusNode,
-          title: "版本",
-          subtitle: "v${Utils.packageInfo.version}",
-          onTap: () => {},
-        ),
-        AppStyle.vGap24,
-        HighlightListTile(
-          focusNode: AppFocusNode(),
-          title: "同步服务",
-          subtitle: SignalRService.configuredUrl,
-          onTap: () => {},
-        ),
-        AppStyle.vGap24,
-        HighlightListTile(
-          focusNode: AppFocusNode(),
-          title: "同步代理",
-          subtitle: SignalRService.proxyDisplayName,
-          onTap: () => {},
-        ),
-      ],
+    return GetBuilder<SettingsController>(
+      builder: (controller) => ListView(
+        padding: AppStyle.edgeInsetsA48,
+        children: [
+          HighlightListTile(
+            focusNode: controller.versionFocusNode,
+            title: "版本",
+            subtitle: "v${Utils.packageInfo.version}",
+            onTap: () => {},
+          ),
+          AppStyle.vGap24,
+          HighlightListTile(
+            focusNode: AppFocusNode(),
+            title: "同步服务",
+            subtitle: SignalRService.configuredUrl,
+            onTap: controller.editSyncServerUrl,
+          ),
+          AppStyle.vGap24,
+          HighlightListTile(
+            focusNode: AppFocusNode(),
+            title: "同步代理",
+            subtitle: SignalRService.proxyDisplayName,
+            onTap: controller.editSyncProxyUrl,
+          ),
+        ],
+      ),
     );
   }
 }

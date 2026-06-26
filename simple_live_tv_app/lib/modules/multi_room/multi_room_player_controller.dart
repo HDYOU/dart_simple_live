@@ -67,6 +67,13 @@ class MultiRoomPlayerController extends GetxController {
       if (event.contains('no sound.')) {
         return;
       }
+
+      // Fix TV多开灰屏: 检测流错误并自动重试
+      if (_isStreamError(event)) {
+        unawaited(_handleStreamError(event));
+        return;
+      }
+
       unawaited(_handleMediaError(event));
     });
     _completedSubscription = player.stream.completed.listen((event) {
@@ -77,6 +84,43 @@ class MultiRoomPlayerController extends GetxController {
     _logSubscription = player.stream.log.listen((event) {
       Log.d("多屏同播播放器日志：${item.site.id}/${item.roomId} ${event.text}");
     });
+  }
+
+  // Fix TV多开灰屏: 判断是否为流错误
+  bool _isStreamError(String error) {
+    return error.contains('mbedtls_ssl_read') ||
+        error.contains('Packet corrupt') ||
+        error.contains('Packet corupt') ||
+        error.contains('tls:') ||
+        error.contains('Invalid NAL unit') ||
+        error.contains('missing picture');
+  }
+
+  // Fix TV多开灰屏: 处理流错误，自动重试解码器
+  Future<void> _handleStreamError(String error) async {
+    if (_disposed || _playUrls.isEmpty) {
+      return;
+    }
+
+    Log.w(
+      "多屏同播检测到流错误，尝试恢复：${item.site.id}/${item.roomId} $error",
+    );
+
+    // 短暂暂停再恢复，触发重新连接
+    try {
+      await player.pause();
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!_disposed) {
+        await player.play();
+      }
+    } catch (e, stackTrace) {
+      Log.e(
+        "多屏同播恢复流失败：${item.site.id}/${item.roomId} $e",
+        stackTrace,
+      );
+      // 恢复失败，走线路切换逻辑
+      await _handleMediaError(error);
+    }
   }
 
   Future<void> load() async {

@@ -108,6 +108,7 @@ class AccountController extends GetxController {
   }
 
   void douyinLogin() {
+    final hasCookie = DouyinAccountService.instance.hasCookie.value;
     Utils.showBottomSheet(
       title: "抖音账号",
       child: Column(
@@ -134,6 +135,28 @@ class AccountController extends GetxController {
               doDouyinCookieConfig();
             },
           ),
+          if (hasCookie)
+            ListTile(
+              leading: const Icon(Icons.visibility_outlined),
+              title: const Text("查看当前 Cookie"),
+              subtitle: const Text("可直接查看当前保存内容"),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Get.back();
+                showCurrentDouyinCookie();
+              },
+            ),
+          if (hasCookie)
+            ListTile(
+              leading: const Icon(Icons.copy_all_outlined),
+              title: const Text("导出到剪贴板"),
+              subtitle: const Text("复制当前 Cookie 文本"),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Get.back();
+                exportDouyinCookieToClipboard();
+              },
+            ),
           if (Platform.isAndroid || Platform.isIOS)
             ListTile(
               leading: const Icon(Icons.file_open_outlined),
@@ -171,6 +194,44 @@ class AccountController extends GetxController {
         SmartDialog.showToast("已清除自定义 Cookie，将使用默认 ttwid");
       }
     }
+  }
+
+  void showCurrentDouyinCookie() {
+    final cookie = DouyinAccountService.instance.cookie;
+    if (cookie.isEmpty) {
+      SmartDialog.showToast("当前没有自定义抖音 Cookie");
+      return;
+    }
+    Get.dialog(
+      AlertDialog(
+        title: const Text("当前抖音 Cookie"),
+        content: SingleChildScrollView(
+          child: SelectableText(cookie),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text("关闭"),
+          ),
+          TextButton(
+            onPressed: () {
+              Utils.copyToClipboard(cookie);
+              Get.back();
+            },
+            child: const Text("复制"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void exportDouyinCookieToClipboard() {
+    final cookie = DouyinAccountService.instance.cookie;
+    if (cookie.isEmpty) {
+      SmartDialog.showToast("当前没有自定义抖音 Cookie");
+      return;
+    }
+    Utils.copyToClipboard(cookie);
   }
 
   Future<void> openDouyinInBrowserThenConfigCookie() async {
@@ -213,10 +274,10 @@ class AccountController extends GetxController {
         SmartDialog.showToast("Cookie 文件内容为空");
         return;
       }
-      final cookie = _normalizeDouyinCookieInput(input);
+      final cookie = DouyinCookieHelper.normalizeInput(input);
       DouyinAccountService.instance.setCookie(cookie);
       douyinCookieCountdownTick.value++;
-      if (_isOnlyDouyinTtwid(cookie)) {
+      if (DouyinCookieHelper.isOnlyTtwid(cookie)) {
         SmartDialog.showToast("已导入 ttwid；搜索仍可能需要完整登录 Cookie");
       } else {
         SmartDialog.showToast("已从文件导入抖音 Cookie");
@@ -311,10 +372,10 @@ class AccountController extends GetxController {
                 douyinCookieCountdownTick.value++;
                 SmartDialog.showToast("已清除自定义 Cookie，将使用默认 ttwid");
               } else {
-                var cookie = _normalizeDouyinCookieInput(input);
+                var cookie = DouyinCookieHelper.normalizeInput(input);
                 DouyinAccountService.instance.setCookie(cookie);
                 douyinCookieCountdownTick.value++;
-                if (_isOnlyDouyinTtwid(cookie)) {
+                if (DouyinCookieHelper.isOnlyTtwid(cookie)) {
                   SmartDialog.showToast("已保存 ttwid；搜索仍可能需要完整登录 Cookie");
                 } else {
                   SmartDialog.showToast("抖音 Cookie 已保存");
@@ -351,55 +412,13 @@ class AccountController extends GetxController {
     return "已自定义（${cookie.length} 字符），预计剩余 ${_formatDurationShort(remain)}";
   }
 
-  bool _isOnlyDouyinTtwid(String cookie) {
-    final normalized = cookie.trim().toLowerCase();
-    return normalized.startsWith("ttwid=") && !normalized.contains(";");
-  }
-
-  String _normalizeDouyinCookieInput(String input) {
-    var cookie = _extractDouyinCookieFromHeaderText(input) ?? input.trim();
-    if (cookie.toLowerCase().startsWith("cookie:")) {
-      cookie = cookie.substring(cookie.indexOf(":") + 1).trim();
-    }
-    if (!cookie.contains("=")) {
-      cookie = 'ttwid=$cookie';
-    }
-    return cookie;
-  }
-
-  String? _extractDouyinCookieFromHeaderText(String input) {
-    final lines = input
-        .split(RegExp(r"\r?\n"))
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty)
-        .toList();
-
-    for (var i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      final lower = line.toLowerCase();
-      if (lower.startsWith("cookie:")) {
-        final value = line.substring(line.indexOf(":") + 1).trim();
-        if (value.contains("=")) {
-          return value;
-        }
-      }
-      if (lower == "cookie" && i + 1 < lines.length) {
-        final value = lines[i + 1].trim();
-        if (value.contains("=")) {
-          return value;
-        }
-      }
-    }
-
-    return null;
-  }
-
   String _getDouyinCookieExpiryText(String input) {
-    final cookie = (_extractDouyinCookieFromHeaderText(input) ?? input).trim();
+    final cookie =
+        (DouyinCookieHelper.extractCookieFromHeaderText(input) ?? input).trim();
     if (cookie.isEmpty) {
       return "当前使用默认 ttwid，无法判断搜索登录态有效期。";
     }
-    if (_isOnlyDouyinTtwid(_normalizeDouyinCookieInput(cookie))) {
+    if (DouyinCookieHelper.isOnlyTtwid(DouyinCookieHelper.normalizeInput(cookie))) {
       return "当前仅为 ttwid，无法判断搜索登录态有效期；主播 / 房间搜索仍可能需要完整 Cookie。";
     }
 
@@ -417,7 +436,8 @@ class AccountController extends GetxController {
   }
 
   DateTime? _parseDouyinCookieExpiry(String input) {
-    final cookie = (_extractDouyinCookieFromHeaderText(input) ?? input).trim();
+    final cookie =
+        (DouyinCookieHelper.extractCookieFromHeaderText(input) ?? input).trim();
     final cookieMap = _parseCookieMap(cookie);
     final sidGuard = cookieMap["sid_guard"];
     if (sidGuard == null || sidGuard.isEmpty) {

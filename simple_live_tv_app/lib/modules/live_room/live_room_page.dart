@@ -101,17 +101,22 @@ class LiveRoomPage extends GetView<LiveRoomController> {
   }
 
   void requestExitPlayer() {
-    // 双击返回键退出
+    // 双击返回键退出：第一次只提示，第二次才退出。
     if (controller.doubleClickExit) {
       controller.doubleClickTimer?.cancel();
+      controller.doubleClickTimer = null;
+      controller.doubleClickExit = false;
+      SmartDialog.dismiss();
       Get.back();
       return;
     }
     controller.doubleClickExit = true;
+    SmartDialog.dismiss();
     SmartDialog.showToast("再按一次退出播放器");
+    controller.doubleClickTimer?.cancel();
     controller.doubleClickTimer = Timer(const Duration(seconds: 2), () {
       controller.doubleClickExit = false;
-      controller.doubleClickTimer?.cancel();
+      controller.doubleClickTimer = null;
     });
   }
 

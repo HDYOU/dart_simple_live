@@ -407,9 +407,16 @@ class FollowUserPage extends GetView<FollowUserController> {
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
-                  Text("${progress.current}/${progress.total}"),
+                  Text("${progress.resolvedCount}/${progress.total}"),
                 ],
               ),
+              if (progress.detail.isNotEmpty) ...[
+                AppStyle.vGap4,
+                Text(
+                  progress.detail,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               AppStyle.vGap8,
               LinearProgressIndicator(
                 value: progress.total > 0 ? progress.percent : null,

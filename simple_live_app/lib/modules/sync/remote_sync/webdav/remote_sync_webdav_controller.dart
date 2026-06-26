@@ -17,6 +17,7 @@ import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/modules/sync/remote_sync/webdav/webdav_client.dart';
 import 'package:simple_live_app/services/bilibili_account_service.dart';
 import 'package:simple_live_app/services/bulk_data_import_service.dart';
+import 'package:simple_live_app/services/douyin_account_service.dart';
 import 'package:simple_live_app/services/local_storage_service.dart';
 import 'package:simple_live_app/services/profile_backup_service.dart';
 import 'package:simple_live_app/widgets/sync_progress_dialog.dart';
@@ -35,6 +36,7 @@ class RemoteSyncWebDAVController extends BaseController {
   var isSyncHistories = true.obs;
   var isSyncBlockWord = true.obs;
   var isSyncBilibiliAccount = true.obs;
+  var isSyncDouyinAccount = true.obs;
 
   late DAVClient davClient;
   var user = "--".obs;
@@ -45,9 +47,11 @@ class RemoteSyncWebDAVController extends BaseController {
   final _userHistoriesJsonName = 'SimpleLive_histories.json';
   final _userBlockedWordJsonName = 'SimpleLive_blocked_word.json';
   final _userBilibiliAccountJsonName = 'SimpleLive_bilibili_account.json';
+  final _userDouyinAccountJsonName = 'SimpleLive_douyin_account.json';
   final _userSettingsJsonName = 'SimpleLive_Settings.json';
   final _userTagsJsonName = 'SimpleLive_Tags.json';
-  final _profileJsonName = 'SimpleLive_Profile_v2.json';
+  final _profileJsonName = 'SimpleLive_Profile_v3.json';
+  final _legacyProfileJsonName = 'SimpleLive_Profile_v2.json';
 
   @override
   void onInit() {
@@ -211,6 +215,13 @@ class RemoteSyncWebDAVController extends BaseController {
       );
       _addJsonFile(
         archive,
+        _userDouyinAccountJsonName,
+        {
+          'data': {'cookie': DouyinAccountService.instance.cookie}
+        },
+      );
+      _addJsonFile(
+        archive,
         _userSettingsJsonName,
         {'data': LocalStorageService.instance.settingsBox.toMap()},
       );
@@ -253,7 +264,12 @@ class RemoteSyncWebDAVController extends BaseController {
       final data = await downloadFile.readAsBytes();
       final archive = _decodeWebDavBackupArchive(data);
       final profileFile = archive
-          .where((file) => file.isFile && file.name == _profileJsonName)
+          .where(
+            (file) =>
+                file.isFile &&
+                (file.name == _profileJsonName ||
+                    file.name == _legacyProfileJsonName),
+          )
           .firstOrNull;
       if (profileFile != null) {
         try {
@@ -275,7 +291,8 @@ class RemoteSyncWebDAVController extends BaseController {
           rethrow;
         }
         for (ArchiveFile file in archive) {
-          if (file.name == _userBilibiliAccountJsonName) {
+          if (file.name == _userBilibiliAccountJsonName ||
+              file.name == _userDouyinAccountJsonName) {
             await _recovery(file, onProgress: SyncProgressDialog.update);
           }
         }
@@ -358,6 +375,19 @@ class RemoteSyncWebDAVController extends BaseController {
         } catch (e) {
           Log.e('同步哔哩哔哩账号失败：$e', StackTrace.current);
         }
+      } else if (file.name == _userDouyinAccountJsonName &&
+          isSyncDouyinAccount.value) {
+        try {
+          final cookie = jsonData['cookie']?.toString() ?? "";
+          if (cookie.isEmpty) {
+            DouyinAccountService.instance.clearCookie();
+          } else {
+            DouyinAccountService.instance.setCookie(cookie);
+          }
+          Log.i('已同步抖音账号');
+        } catch (e) {
+          Log.e('同步抖音账号失败：$e', StackTrace.current);
+        }
       } else if (file.name == _userSettingsJsonName) {
         try {
           await LocalStorageService.instance.settingsBox.clear();
@@ -406,5 +436,9 @@ class RemoteSyncWebDAVController extends BaseController {
 
   void changeIsSyncBilibiliAccount() {
     isSyncBilibiliAccount.value = !isSyncBilibiliAccount.value;
+  }
+
+  void changeIsSyncDouyinAccount() {
+    isSyncDouyinAccount.value = !isSyncDouyinAccount.value;
   }
 }

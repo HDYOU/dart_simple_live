@@ -114,6 +114,12 @@ class WebDavPage extends GetView<WebDavController> {
                             value: controller.isSyncBilibiliAccount,
                             onTap: controller.changeIsSyncBilibiliAccount,
                           ),
+                          _SwitchTile(
+                            title: "抖音账号",
+                            icon: Icons.account_circle,
+                            value: controller.isSyncDouyinAccount,
+                            onTap: controller.changeIsSyncDouyinAccount,
+                          ),
                         ],
                 ),
               ),

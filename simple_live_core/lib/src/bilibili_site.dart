@@ -251,7 +251,21 @@ class BiliBiliSite implements LiveSite {
       queryParameters: queryParams,
       header: await getHeader(),
     );
-    List<String> serverHosts = (roomDanmakuResult["data"]["host_list"] as List)
+
+    // Fix Issue #56: 防御性检查，B站风控时data为null
+    final danmuData = roomDanmakuResult["data"];
+    if (danmuData == null || danmuData is! Map) {
+      throw Exception(
+        "获取直播间信息失败，可能需要验证。请在浏览器中打开该直播间完成图形验证，或退出登录后重试。",
+      );
+    }
+
+    final hostListRaw = danmuData["host_list"];
+    if (hostListRaw == null || hostListRaw is! List) {
+      throw Exception("直播间弹幕服务器信息缺失，请稍后重试");
+    }
+
+    List<String> serverHosts = (hostListRaw as List)
         .map<String>((e) => e["host"].toString())
         .toList();
 
@@ -273,7 +287,7 @@ class BiliBiliSite implements LiveSite {
       danmakuData: BiliBiliDanmakuArgs(
         roomId: int.tryParse(realRoomId) ?? 0,
         uid: userId,
-        token: roomDanmakuResult["data"]["token"].toString(),
+        token: danmuData["token"].toString(),
         serverHost: serverHosts.isNotEmpty
             ? serverHosts.first
             : "broadcastlv.chat.bilibili.com",

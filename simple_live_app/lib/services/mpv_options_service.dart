@@ -93,7 +93,8 @@ class MpvOptionsService {
       vo: options["vo"],
       hwdec: options["hwdec"],
       enableHardwareAcceleration: settings.hardwareDecode.value,
-      androidAttachSurfaceAfterVideoParameters: false,
+      // Fix Issue #57: 安卓全屏后画面卡死 - 延迟attach避免surface race condition
+      androidAttachSurfaceAfterVideoParameters: true,
     );
   }
 

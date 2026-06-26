@@ -4,10 +4,8 @@ import 'package:simple_live_tv_app/app/constant.dart';
 import 'package:simple_live_tv_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_tv_app/app/sites.dart';
 import 'package:simple_live_tv_app/modules/category/category_controller.dart';
-import 'package:simple_live_tv_app/modules/multi_room/multi_room_models.dart';
 import 'package:simple_live_tv_app/routes/route_path.dart';
 import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
-import 'package:simple_live_tv_app/services/desktop_multi_window_service.dart';
 
 /// APP页面跳转封装
 /// * 需要参数的页面都应使用此类
@@ -28,19 +26,6 @@ class AppNavigator {
 
     Get.toNamed(RoutePath.kLiveRoomDetail, arguments: site, parameters: {
       "roomId": roomId,
-    });
-  }
-
-  static Future<dynamic> toMultiRoom(List<MultiRoomItem> rooms) {
-    return DesktopMultiWindowService.openRooms(rooms).then((opened) {
-      if (opened) {
-        return null;
-      }
-      return Get.toNamed(
-            RoutePath.kMultiRoom,
-            arguments: rooms,
-          ) ??
-          Future.value();
     });
   }
 

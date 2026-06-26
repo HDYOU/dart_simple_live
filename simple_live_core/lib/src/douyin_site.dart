@@ -1184,24 +1184,16 @@ class DouyinSite implements LiveSite {
 
   @override
   Future<bool> getLiveStatus({required String roomId}) async {
+    final targetId = roomId.trim();
+    if (targetId.isEmpty) {
+      return false;
+    }
     try {
-      if (roomId.length <= 16) {
-        final data = await _getRoomDataByApi(roomId);
-        final roomList = data["data"];
-        if (roomList is List && roomList.isNotEmpty) {
-          final roomData = roomList.first;
-          return (asT<int?>(roomData["status"]) ?? 0) == 2;
-        }
-        return false;
+      final status = await _tryGetLiveStatus(targetId);
+      if (status != null) {
+        return status;
       }
-
-      final roomData = await _getRoomDataByRoomId(roomId);
-      final room = roomData["data"]?["room"];
-      if (room is! Map) {
-        return false;
-      }
-      final status = asT<int?>(room["status"]) ?? 0;
-      return status == 2;
+      return false;
     } catch (e) {
       if (e is CoreError && e.statusCode == 444) {
         rethrow;
@@ -1209,6 +1201,96 @@ class DouyinSite implements LiveSite {
       CoreLog.error(e);
       return false;
     }
+  }
+
+  Future<bool?> _tryGetLiveStatus(String targetId) async {
+    final attempts = <Future<bool> Function()>[];
+    if (targetId.length <= 16) {
+      attempts.add(() => _getLiveStatusByWebRid(targetId));
+      attempts.add(() => _getLiveStatusByRoomId(targetId));
+    } else {
+      attempts.add(() => _getLiveStatusByRoomId(targetId));
+      attempts.add(() => _getLiveStatusByWebRid(targetId));
+    }
+
+    Object? lastError;
+    for (var i = 0; i < attempts.length; i++) {
+      try {
+        return await attempts[i]();
+      } catch (e) {
+        if (e is CoreError && e.statusCode == 444) {
+          rethrow;
+        }
+        lastError = e;
+        if (i == 0) {
+          _logDebug("getLiveStatus($targetId) 第1路失败，尝试第2路：$e");
+        }
+      }
+    }
+
+    if (lastError != null) {
+      CoreLog.error(lastError);
+    }
+    return null;
+  }
+
+  Future<bool> _getLiveStatusByWebRid(String webRid) async {
+    final data = await _getRoomDataByApi(webRid);
+    final roomList = data["data"];
+    if (roomList is List && roomList.isNotEmpty) {
+      final roomData = roomList.first;
+      return _isDouyinLiveStatus(roomData);
+    }
+    throw CoreError("抖音直播状态数据为空");
+  }
+
+  Future<bool> _getLiveStatusByRoomId(String roomId) async {
+    final roomData = await _getRoomDataByRoomId(roomId);
+    final room = roomData["data"]?["room"];
+    if (room is! Map) {
+      return false;
+    }
+    return _isDouyinLiveStatus(room);
+  }
+
+  bool _isDouyinLiveStatus(dynamic data) {
+    if (data is! Map) {
+      return false;
+    }
+    final candidates = <dynamic>[
+      data["status"],
+      data["live_status"],
+      data["room_status"],
+      data["status_str"],
+    ];
+    for (final candidate in candidates) {
+      final parsed = _parseDouyinStatus(candidate);
+      if (parsed != null) {
+        return parsed == 2;
+      }
+    }
+    return false;
+  }
+
+  int? _parseDouyinStatus(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value is String) {
+      return int.tryParse(value.trim());
+    }
+    if (value is Map) {
+      for (final key in const ["status", "live_status", "room_status"]) {
+        final parsed = _parseDouyinStatus(value[key]);
+        if (parsed != null) {
+          return parsed;
+        }
+      }
+    }
+    return null;
   }
 
   @override

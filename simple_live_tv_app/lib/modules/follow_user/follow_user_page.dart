@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_tv_app/app/app_focus_node.dart';
 import 'package:simple_live_tv_app/app/app_style.dart';
-import 'package:simple_live_tv_app/app/sites.dart';
-import 'package:simple_live_tv_app/modules/multi_room/multi_room_models.dart';
-import 'package:simple_live_tv_app/routes/app_navigation.dart';
 import 'package:simple_live_tv_app/services/current_room_service.dart';
 import 'package:simple_live_tv_app/services/follow_user_service.dart';
 import 'package:simple_live_tv_app/widgets/app_scaffold.dart';
@@ -25,9 +21,6 @@ class _FollowUserPageState extends State<FollowUserPage> {
   final ScrollController _scrollController = ScrollController();
   final Map<String, AppFocusNode> _focusNodes = <String, AppFocusNode>{};
 
-  static final RxBool _multiSelectMode = false.obs;
-  static final RxSet<String> _selectedRoomKeys = <String>{}.obs;
-
   @override
   void initState() {
     super.initState();
@@ -44,42 +37,6 @@ class _FollowUserPageState extends State<FollowUserPage> {
     }
     _focusNodes.clear();
     super.dispose();
-  }
-
-  void _toggleMultiSelectMode() {
-    _multiSelectMode.value = !_multiSelectMode.value;
-    if (!_multiSelectMode.value) {
-      _selectedRoomKeys.clear();
-    }
-  }
-
-  void _toggleRoom(dynamic item) {
-    if (item.liveStatus.value != 2) {
-      SmartDialog.showToast("当前不是直播中，请先刷新关注状态");
-      return;
-    }
-    if (_selectedRoomKeys.contains(item.id)) {
-      _selectedRoomKeys.remove(item.id);
-    } else {
-      _selectedRoomKeys.add(item.id);
-    }
-  }
-
-  void _openSelectedRooms() {
-    final selected = FollowUserService.instance.list
-        .where(
-          (item) =>
-              _selectedRoomKeys.contains(item.id) &&
-              item.liveStatus.value == 2 &&
-              Sites.allSites.containsKey(item.siteId),
-        )
-        .map(MultiRoomItem.fromFollow)
-        .toList();
-    if (selected.length < 2) {
-      SmartDialog.showToast("请至少选择 2 个直播中的主播");
-      return;
-    }
-    AppNavigator.toMultiRoom(selected);
   }
 
   AppFocusNode _focusNodeFor(String key) {
@@ -170,32 +127,6 @@ class _FollowUserPageState extends State<FollowUserPage> {
                   },
                 ),
                 AppStyle.hGap24,
-                Obx(
-                  () => HighlightButton(
-                    focusNode: AppFocusNode(),
-                    iconData: _multiSelectMode.value
-                        ? Icons.grid_view
-                        : Icons.dashboard,
-                    text: _multiSelectMode.value
-                        ? "开始同播(${_selectedRoomKeys.length})"
-                        : "多屏同播",
-                    onTap: _multiSelectMode.value
-                        ? _openSelectedRooms
-                        : _toggleMultiSelectMode,
-                  ),
-                ),
-                AppStyle.hGap24,
-                Obx(
-                  () => Visibility(
-                    visible: _multiSelectMode.value,
-                    child: HighlightButton(
-                      focusNode: AppFocusNode(),
-                      iconData: Icons.close,
-                      text: "取消",
-                      onTap: _toggleMultiSelectMode,
-                    ),
-                  ),
-                ),
                 AppStyle.hGap48,
               ],
             ),
@@ -258,20 +189,9 @@ class _FollowUserPageState extends State<FollowUserPage> {
                                     roomId: item.roomId,
                                     autofocus: isCurrent,
                                     focusNode: _focusNodeFor(item.id),
-                                    onTap: _multiSelectMode.value
-                                        ? () => _toggleRoom(item)
-                                        : null,
+                                    onTap: null,
                                   ),
                                 ),
-                                if (_selectedRoomKeys.contains(item.id))
-                                  Positioned(
-                                    right: 12.w,
-                                    bottom: 12.w,
-                                    child: const Icon(
-                                      Icons.check_circle,
-                                      color: Colors.lightGreenAccent,
-                                    ),
-                                  ),
                               ],
                             ),
                           ),
@@ -381,11 +301,18 @@ class _FollowUserPageState extends State<FollowUserPage> {
                   ),
                 ),
                 Text(
-                  "${progress.current}/${progress.total}",
+                  "${progress.resolvedCount}/${progress.total}",
                   style: AppStyle.textStyleWhite.copyWith(fontSize: 24.w),
                 ),
               ],
             ),
+            if (progress.detail.isNotEmpty) ...[
+              AppStyle.vGap8,
+              Text(
+                progress.detail,
+                style: AppStyle.textStyleWhite.copyWith(fontSize: 20.w),
+              ),
+            ],
             AppStyle.vGap12,
             ClipRRect(
               borderRadius: BorderRadius.circular(999),

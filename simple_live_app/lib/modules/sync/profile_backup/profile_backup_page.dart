@@ -38,7 +38,7 @@ class ProfileBackupPage extends GetView<ProfileBackupController> {
                 ListTile(
                   leading: const Icon(Remix.upload_2_line),
                   title: const Text("导入配置包"),
-                  subtitle: const Text("支持合并或覆盖，不导入账号 Cookie 和 WebDAV 密码"),
+                  subtitle: const Text("支持合并或覆盖，不导入 WebDAV 密码"),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: controller.importProfile,
                 ),

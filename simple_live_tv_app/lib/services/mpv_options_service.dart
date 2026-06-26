@@ -73,7 +73,8 @@ class MpvOptionsService {
       vo: options["vo"],
       hwdec: options["hwdec"],
       enableHardwareAcceleration: settings.hardwareDecode.value,
-      androidAttachSurfaceAfterVideoParameters: false,
+      // Fix TV多开灰屏/Android全屏卡死: 延迟attach避免surface race condition
+      androidAttachSurfaceAfterVideoParameters: true,
     );
   }
 

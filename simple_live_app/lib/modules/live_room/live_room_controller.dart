@@ -1043,7 +1043,10 @@ class LiveRoomController extends PlayerController
       if (countdown.value <= 0) {
         timer = Timer(const Duration(seconds: 10), () async {
           await WakelockPlus.disable();
-          exit(0);
+          if (Platform.isWindows) {
+            await windowManager.setPreventClose(false);
+          }
+          await windowManager.close();
         });
         autoExitTimer?.cancel();
         var delay = await Utils.showAlertDialog(
@@ -1061,7 +1064,10 @@ class LiveRoomController extends PlayerController
         } else {
           delayAutoExit.value = false;
           await WakelockPlus.disable();
-          exit(0);
+          if (Platform.isWindows) {
+            await windowManager.setPreventClose(false);
+          }
+          await windowManager.close();
         }
       }
     });

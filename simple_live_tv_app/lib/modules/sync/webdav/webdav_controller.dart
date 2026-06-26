@@ -17,6 +17,7 @@ import 'package:simple_live_tv_app/app/utils.dart';
 import 'package:simple_live_tv_app/modules/sync/webdav/webdav_client.dart';
 import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
 import 'package:simple_live_tv_app/services/bulk_data_import_service.dart';
+import 'package:simple_live_tv_app/services/douyin_account_service.dart';
 import 'package:simple_live_tv_app/services/local_storage_service.dart';
 import 'package:simple_live_tv_app/services/profile_backup_service.dart';
 import 'package:simple_live_tv_app/widgets/sync_progress_dialog.dart';
@@ -26,6 +27,7 @@ class WebDavController extends BaseController {
   final isSyncHistories = true.obs;
   final isSyncBlockWord = true.obs;
   final isSyncBilibiliAccount = true.obs;
+  final isSyncDouyinAccount = true.obs;
   final passwordVisible = true.obs;
   final user = "--".obs;
   final lastRecoverTime = "--".obs;
@@ -37,8 +39,10 @@ class WebDavController extends BaseController {
   final _userHistoriesJsonName = 'SimpleLive_histories.json';
   final _userBlockedWordJsonName = 'SimpleLive_blocked_word.json';
   final _userBilibiliAccountJsonName = 'SimpleLive_bilibili_account.json';
+  final _userDouyinAccountJsonName = 'SimpleLive_douyin_account.json';
   final _userSettingsJsonName = 'SimpleLive_Settings.json';
-  final _profileJsonName = 'SimpleLive_Profile_v2.json';
+  final _profileJsonName = 'SimpleLive_Profile_v3.json';
+  final _legacyProfileJsonName = 'SimpleLive_Profile_v2.json';
 
   @override
   void onInit() {
@@ -192,6 +196,9 @@ class WebDavController extends BaseController {
     _addJsonFile(archive, _userBilibiliAccountJsonName, {
       'data': {'cookie': BiliBiliAccountService.instance.cookie},
     });
+    _addJsonFile(archive, _userDouyinAccountJsonName, {
+      'data': {'cookie': DouyinAccountService.instance.cookie},
+    });
     _addJsonFile(archive, _userSettingsJsonName, {
       'data': LocalStorageService.instance.settingsBox.toMap(),
     });
@@ -220,7 +227,9 @@ class WebDavController extends BaseController {
           ZipDecoder().decodeBytes(await downloadFile.readAsBytes());
       ArchiveFile? profileFile;
       for (final file in archive) {
-        if (file.isFile && file.name == _profileJsonName) {
+        if (file.isFile &&
+            (file.name == _profileJsonName ||
+                file.name == _legacyProfileJsonName)) {
           profileFile = file;
           break;
         }
@@ -239,7 +248,8 @@ class WebDavController extends BaseController {
         );
         Log.i("已恢复完整配置包：${summary.message}");
         for (final file in archive) {
-          if (file.name == _userBilibiliAccountJsonName) {
+          if (file.name == _userBilibiliAccountJsonName ||
+              file.name == _userDouyinAccountJsonName) {
             await _recovery(file);
           }
         }
@@ -303,7 +313,21 @@ class WebDavController extends BaseController {
       BiliBiliAccountService.instance.setCookie(cookie);
       await BiliBiliAccountService.instance.loadUserInfo();
       Log.i('已恢复哔哩哔哩账号');
+    } else if (file.name == _userDouyinAccountJsonName &&
+        isSyncDouyinAccount.value) {
+      final cookie =
+          jsonData is Map ? jsonData['cookie']?.toString() ?? "" : "";
+      if (cookie.isEmpty) {
+        DouyinAccountService.instance.clearCookie();
+      } else {
+        DouyinAccountService.instance.setCookie(cookie);
+      }
+      Log.i('已恢复抖音账号');
     }
+  }
+
+  void changeIsSyncDouyinAccount() {
+    isSyncDouyinAccount.value = !isSyncDouyinAccount.value;
   }
 }
 

@@ -7,15 +7,18 @@ import 'package:simple_live_tv_app/app/constant.dart';
 import 'package:simple_live_tv_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_tv_app/app/event_bus.dart';
 import 'package:simple_live_tv_app/app/utils.dart';
+import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
 import 'package:simple_live_tv_app/services/bulk_data_import_service.dart';
 import 'package:simple_live_tv_app/services/db_service.dart';
+import 'package:simple_live_tv_app/services/douyin_account_service.dart';
 import 'package:simple_live_tv_app/services/local_storage_service.dart';
 
 class ProfileBackupService extends GetxService {
   static ProfileBackupService get instance => Get.find<ProfileBackupService>();
 
   static const schema = "simple_live_profile";
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
+  static const Set<int> _supportedSchemaVersions = {2, 3};
 
   static const Set<String> _excludedSettings = {
     LocalStorageService.kFirstRun,
@@ -24,8 +27,6 @@ class ProfileBackupService extends GetxService {
     LocalStorageService.kWebDAVPassword,
     LocalStorageService.kWebDAVLastUploadTime,
     LocalStorageService.kWebDAVLastRecoverTime,
-    LocalStorageService.kBilibiliCookie,
-    LocalStorageService.kDouyinCookie,
   };
 
   Map<String, dynamic> exportProfileMap() {
@@ -44,6 +45,7 @@ class ProfileBackupService extends GetxService {
       "platform": Platform.operatingSystem,
       "exportedAt": DateTime.now().toIso8601String(),
       "settings": settingsPayload,
+      "accounts": _exportAccounts(),
       "danmuShield": shieldPayload,
       "shieldPresets": const [],
       "followUsers": followUsers,
@@ -56,6 +58,7 @@ class ProfileBackupService extends GetxService {
         "followUserCount": followUsers.length,
         "followTagCount": 0,
         "historyCount": histories.length,
+        "accountCount": (_exportAccounts()["items"] as List).length,
       },
     };
   }
@@ -77,7 +80,8 @@ class ProfileBackupService extends GetxService {
     }
     final payload = decoded.cast<String, dynamic>();
     if (payload["schema"] == schema) {
-      if ((payload["schemaVersion"] as num?)?.toInt() != schemaVersion) {
+      final version = (payload["schemaVersion"] as num?)?.toInt() ?? 2;
+      if (!_supportedSchemaVersions.contains(version)) {
         throw const FormatException("暂不支持该配置包版本");
       }
       return importProfileMap(
@@ -125,6 +129,7 @@ class ProfileBackupService extends GetxService {
         onProgress,
       );
     }
+    await _importAccounts(payload["accounts"]);
     if (options.follows) {
       await _importFollowUsers(
         _readPayloadList(
@@ -250,6 +255,27 @@ class ProfileBackupService extends GetxService {
     return result;
   }
 
+  Map<String, dynamic> _exportAccounts() {
+    return {
+      "items": [
+        {
+          "siteId": Constant.kBiliBili,
+          "cookie": LocalStorageService.instance.getValue(
+            LocalStorageService.kBilibiliCookie,
+            "",
+          ),
+        },
+        {
+          "siteId": Constant.kDouyin,
+          "cookie": LocalStorageService.instance.getValue(
+            LocalStorageService.kDouyinCookie,
+            "",
+          ),
+        },
+      ],
+    };
+  }
+
   Map<String, dynamic> _exportShieldValues() {
     final keywords = AppSettingsController.instance.shieldList.toList()..sort();
     final raw = LocalStorageService.instance.shieldBox.values
@@ -322,6 +348,35 @@ class ProfileBackupService extends GetxService {
     );
     summary.shields += result.imported;
     summary.skipped += result.skipped;
+  }
+
+  Future<void> _importAccounts(dynamic rawAccounts) async {
+    if (rawAccounts is! Map) {
+      return;
+    }
+    final items = rawAccounts["items"];
+    if (items is! List) {
+      return;
+    }
+    for (final item in items) {
+      if (item is! Map) {
+        continue;
+      }
+      final siteId = item["siteId"]?.toString() ?? "";
+      final cookie = item["cookie"]?.toString() ?? "";
+      switch (siteId) {
+        case Constant.kBiliBili:
+          BiliBiliAccountService.instance.setCookie(cookie);
+          break;
+        case Constant.kDouyin:
+          if (cookie.isEmpty) {
+            DouyinAccountService.instance.clearCookie();
+          } else {
+            DouyinAccountService.instance.setCookie(cookie);
+          }
+          break;
+      }
+    }
   }
 
   Future<void> _importFollowUsers(

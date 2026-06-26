@@ -358,26 +358,7 @@ class _DesktopWindowLifecycle with WindowListener {
       return;
     }
     _closing = true;
-    if (Platform.isWindows) {
-      _closeWindowsFast();
-      return;
-    }
     unawaited(_closeApp());
-  }
-
-  void _closeWindowsFast() {
-    _saveTimer?.cancel();
-    windowManager.removeListener(this);
-    _closeStepSync("关闭同步服务", () {
-      if (Get.isRegistered<SyncService>()) {
-        SyncService.instance.onClose();
-      }
-    });
-    _closeStepSync("关闭日志写入", Log.disposeWriter);
-    unawaited(windowManager.hide());
-    Timer(const Duration(milliseconds: 80), () {
-      exit(0);
-    });
   }
 
   Future<void> _closeApp() async {
@@ -404,6 +385,13 @@ class _DesktopWindowLifecycle with WindowListener {
     _closeStepSync("关闭日志写入", Log.disposeWriter);
 
     windowManager.removeListener(this);
+    if (Platform.isWindows) {
+      await _closeStep(
+        "取消关闭拦截",
+        () => windowManager.setPreventClose(false),
+        timeout: const Duration(milliseconds: 300),
+      );
+    }
     await windowManager.destroy();
   }
 

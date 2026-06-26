@@ -28,9 +28,6 @@ class RoutePath {
   /// 直播间
   static const kLiveRoomDetail = "/room/detail";
 
-  /// 多屏同播
-  static const kMultiRoom = "/room/multi";
-
   /// 哔哩哔哩登录
   static const kBiliBiliQRLogin = "/bilibili/qr_login";
 

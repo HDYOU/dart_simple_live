@@ -1163,6 +1163,11 @@ class PlayerController extends BaseController
   StreamSubscription? _logSubscription;
   StreamSubscription? _playingSubscription;
 
+  // Fix Issue #57: 流错误重试计数器
+  int _streamErrorRetryCount = 0;
+  DateTime? _lastStreamErrorTime;
+  Timer? _surfaceHealthCheckTimer;
+
   void initStream() {
     _errorSubscription = player.stream.error.listen((event) {
       Log.d("播放器错误：$event");
@@ -1171,6 +1176,13 @@ class PlayerController extends BaseController
       if (event.contains('no sound.')) {
         return;
       }
+
+      // Fix Issue #57: 检测流错误并自动重试
+      if (_isStreamError(event)) {
+        _handleStreamError(event);
+        return;
+      }
+
       //SmartDialog.showToast(event);
       mediaError(event);
     });
@@ -1180,6 +1192,8 @@ class PlayerController extends BaseController
         WakelockPlus.enable();
         unawaited(_syncBackgroundPlaybackService(true));
         Log.d("Playing");
+        // 播放成功，重置流错误计数
+        _streamErrorRetryCount = 0;
       }
     });
 
@@ -1194,15 +1208,38 @@ class PlayerController extends BaseController
     _widthSubscription = player.stream.width.listen((event) {
       Log.d(
           'width:$event  W:${(player.state.width)}  H:${(player.state.height)}');
+
+      // Fix Issue #57: 检测异常的视频尺寸
+      if (event == null || event <= 0) {
+        if (player.state.playing) {
+          Log.w("播放器宽度异常: $event (播放中)，可能是Surface失效");
+          _handleInvalidVideoSize();
+        }
+        return;
+      }
+
       isVertical.value =
           (player.state.height ?? 9) > (player.state.width ?? 16);
     });
     _heightSubscription = player.stream.height.listen((event) {
       Log.d(
           'height:$event  W:${(player.state.width)}  H:${(player.state.height)}');
+
+      // Fix Issue #57: 检测异常的视频尺寸
+      if (event == null || event <= 0) {
+        if (player.state.playing) {
+          Log.w("播放器高度异常: $event (播放中)，可能是Surface失效");
+          _handleInvalidVideoSize();
+        }
+        return;
+      }
+
       isVertical.value =
           (player.state.height ?? 9) > (player.state.width ?? 16);
     });
+
+    // Fix Issue #57: 启动Surface健康检查
+    _startSurfaceHealthCheck();
   }
 
   void disposeStream() {
@@ -1213,6 +1250,104 @@ class PlayerController extends BaseController
     _logSubscription?.cancel();
     _pipSubscription?.cancel();
     _playingSubscription?.cancel();
+    _surfaceHealthCheckTimer?.cancel();
+  }
+
+  // Fix Issue #57: 判断是否为流错误（网络/解码错误）
+  bool _isStreamError(String error) {
+    return error.contains('mbedtls_ssl_read') ||
+        error.contains('Packet corrupt') ||
+        error.contains('Packet corupt') ||
+        error.contains('tls:') ||
+        error.contains('Invalid NAL unit') ||
+        error.contains('missing picture');
+  }
+
+  // Fix Issue #57: 处理流错误，自动重试
+  Future<void> _handleStreamError(String error) async {
+    final now = DateTime.now();
+
+    // 防止短时间内重复触发
+    if (_lastStreamErrorTime != null &&
+        now.difference(_lastStreamErrorTime!) < const Duration(seconds: 2)) {
+      return;
+    }
+    _lastStreamErrorTime = now;
+
+    if (_streamErrorRetryCount >= 3) {
+      Log.e("流错误重试次数已达上限(3次)，停止重试: $error", StackTrace.current);
+      mediaError(error);
+      return;
+    }
+
+    _streamErrorRetryCount++;
+    Log.w(
+      "检测到流错误，自动重试解码器 ($_streamErrorRetryCount/3): $error",
+      false,
+    );
+
+    // 等待1秒后重新打开当前流
+    await Future.delayed(const Duration(seconds: 1));
+
+    try {
+      final currentMedia = player.state.playlist.medias.isNotEmpty
+          ? player.state.playlist.medias[player.state.playlist.index]
+          : null;
+
+      if (currentMedia != null && !_playerClosing) {
+        Log.i("正在重启解码器...");
+        await player.pause();
+        await Future.delayed(const Duration(milliseconds: 200));
+        await player.open(currentMedia);
+      }
+    } catch (e, stackTrace) {
+      Log.e("重启解码器失败: $e", stackTrace);
+      mediaError(error);
+    }
+  }
+
+  // Fix Issue #57: 处理异常的视频尺寸（Surface失效）
+  Future<void> _handleInvalidVideoSize() async {
+    Log.w("检测到视频尺寸异常，尝试恢复Surface");
+
+    // 短暂暂停再恢复，触发Surface重建
+    try {
+      if (player.state.playing && !_playerClosing) {
+        await player.pause();
+        await Future.delayed(const Duration(milliseconds: 300));
+        await player.play();
+      }
+    } catch (e, stackTrace) {
+      Log.e("恢复Surface失败: $e", stackTrace);
+    }
+  }
+
+  // Fix Issue #57: Surface健康检查（每3秒检查一次）
+  void _startSurfaceHealthCheck() {
+    if (!Platform.isAndroid) {
+      return; // 仅Android需要
+    }
+
+    _surfaceHealthCheckTimer?.cancel();
+    _surfaceHealthCheckTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (timer) {
+        if (_playerClosing) {
+          timer.cancel();
+          return;
+        }
+
+        // 检测：播放中但尺寸为null = Surface异常
+        if (player.state.playing &&
+            (player.state.width == null || player.state.height == null)) {
+          Log.w(
+            "Surface健康检查失败: playing=${player.state.playing} "
+            "width=${player.state.width} height=${player.state.height}",
+          );
+          _handleInvalidVideoSize();
+        }
+      },
+    );
   }
 
   void mediaEnd() {

@@ -156,6 +156,8 @@ class LocalStorageService extends GetxService {
   /// 开启多线程更新关注
   static const String kUpdateFollowThreadCount = "UpdateFollowThreadCount";
   static const String kFollowPageSize = "FollowPageSize";
+  static const String kFollowRefreshTaskState = "FollowRefreshTaskState";
+  static const String kFollowRefreshTaskTargets = "FollowRefreshTaskTargets";
 
   /// 远程同步服务地址
   static const String kSyncServerUrl = "SyncServerUrl";
