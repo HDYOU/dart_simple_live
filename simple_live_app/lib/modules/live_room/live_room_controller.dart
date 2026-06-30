@@ -43,6 +43,7 @@ import 'package:window_manager/window_manager.dart';
 
 class LiveRoomController extends PlayerController
     with WidgetsBindingObserver, WindowListener {
+  static const volumeSliderDialogTag = "live_room_volume_slider";
   final Site pSite;
   final String pRoomId;
   final bool initialDesktopSidePanelCollapsed;
@@ -1131,6 +1132,7 @@ class LiveRoomController extends PlayerController
       windowManager.removeListener(this);
     }
     unawaited(cancelAutoPipOnLeave());
+    CurrentRoomService.instance.clearRoom();
     scrollController.removeListener(scrollListener);
     autoExitTimer?.cancel();
     _superChatRefreshTimer?.cancel();
@@ -1144,7 +1146,9 @@ class LiveRoomController extends PlayerController
     unawaited(
       AppSettingsController.instance.setLastLiveRoomResumePending(false),
     );
-    await player.stop();
+    if (!isPlayerClosing) {
+      await player.stop();
+    }
     await liveDanmaku.stop();
     LiveSubtitleService.instance.stop();
     super.onClose();
@@ -1293,14 +1297,15 @@ class LiveRoomController extends PlayerController
         // 这里统一修正回当前实际 roomId。
         if (detail.value!.roomId != roomId) {
           var oldId = roomId;
+          final resolvedRoomId = detail.value!.roomId;
           rxRoomId.value = detail.value!.roomId;
           if (followed.value) {
             // 同步修正已关注房间的主键
             DBService.instance.deleteFollow("${site.id}_$oldId");
             DBService.instance.addFollow(
               FollowUser(
-                id: "${site.id}_$roomId",
-                roomId: roomId,
+                id: "${site.id}_$resolvedRoomId",
+                roomId: resolvedRoomId,
                 siteId: site.id,
                 userName: detail.value!.userName,
                 face: detail.value!.userAvatar,
@@ -1308,8 +1313,9 @@ class LiveRoomController extends PlayerController
               ),
             );
           } else {
-            followed.value =
-                DBService.instance.getFollowExist("${site.id}_$roomId");
+            followed.value = DBService.instance.getFollowExist(
+              "${site.id}_$resolvedRoomId",
+            );
           }
         }
       }
@@ -1850,12 +1856,17 @@ class LiveRoomController extends PlayerController
     );
   }
 
-  void showVolumeSlider(BuildContext targetContext) {
+  void showVolumeSlider(
+    BuildContext targetContext, {
+    bool keepAlive = false,
+  }) {
     SmartDialog.showAttach(
       targetContext: targetContext,
       alignment: Alignment.topCenter,
-      displayTime: const Duration(seconds: 3),
+      displayTime: keepAlive ? null : const Duration(seconds: 3),
       maskColor: const Color(0x00000000),
+      tag: volumeSliderDialogTag,
+      keepSingle: true,
       builder: (context) {
         return Container(
           decoration: BoxDecoration(

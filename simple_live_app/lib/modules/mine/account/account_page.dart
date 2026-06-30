@@ -73,6 +73,24 @@ class AccountPage extends GetView<AccountController> {
               onTap: controller.douyinTap,
             ),
           ),
+          Obx(
+            () => ListTile(
+              leading: Image.asset(
+                'assets/images/kuaishou.png',
+                width: 36,
+                height: 36,
+              ),
+              title: const Text("快手直播"),
+              subtitle: Text(controller.getKuaishouCookieSummaryText()),
+              trailing: controller.canUseKuaishouWebLogin
+                  ? TextButton(
+                      onPressed: controller.kuaishouWebLogin,
+                      child: const Text("网页登录"),
+                    )
+                  : const Icon(Icons.chevron_right),
+              onTap: controller.kuaishouTap,
+            ),
+          ),
         ],
       ),
     );

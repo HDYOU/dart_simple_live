@@ -91,6 +91,7 @@ mixin PlayerMixin {
 
 mixin PlayerStateMixin on PlayerMixin {
   bool _playerClosing = false;
+  bool _desktopVolumeDragging = false;
 
   ///音量控制条计时器
   Timer? hidevolumeTimer;
@@ -154,6 +155,14 @@ mixin PlayerStateMixin on PlayerMixin {
 
   bool get useBottomSheetPlayerMenus =>
       (Platform.isAndroid || Platform.isIOS) && !fullScreenState.value;
+
+  bool get desktopVolumeDragging => _desktopVolumeDragging;
+
+  set desktopVolumeDragging(bool value) {
+    _desktopVolumeDragging = value;
+  }
+
+  bool get isPlayerClosing => _playerClosing;
 
   /// 隐藏控制器
   void hideControls() {
@@ -449,8 +458,6 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
       if (_windowMaximizedBeforeFullScreen) {
         await windowManager.restore();
         await _waitForWindowMaximizedState(false);
-        await windowManager.setSize(const Size(1280, 720));
-        await windowManager.center();
         await Future.delayed(const Duration(milliseconds: 240));
       }
       await _applyWindowsFullScreenChrome();
@@ -1030,10 +1037,17 @@ mixin PlayerGestureControlMixin
     lastVolume = -1;
 
     verticalDragging = true;
-    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+    if (Platform.isAndroid ||
+        Platform.isIOS ||
+        Platform.isMacOS ||
+        Platform.isWindows ||
+        Platform.isLinux) {
       showGestureTip.value = true;
     }
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (Platform.isAndroid ||
+        Platform.isIOS ||
+        Platform.isWindows ||
+        Platform.isLinux) {
       _currentVolume = await VolumeController.instance.getVolume();
     }
     if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
@@ -1047,7 +1061,10 @@ mixin PlayerGestureControlMixin
       return;
     }
     if (verticalDragging == false) return;
-    if (!Platform.isAndroid && !Platform.isIOS) {
+    if (!Platform.isAndroid &&
+        !Platform.isIOS &&
+        !Platform.isWindows &&
+        !Platform.isLinux) {
       return;
     }
     //String text = "";
@@ -1098,6 +1115,10 @@ mixin PlayerGestureControlMixin
 
   Future _realSetVolume(int volume) async {
     Log.logPrint(volume);
+    if (Platform.isWindows || Platform.isLinux) {
+      await setSessionPlayerVolume(volume.toDouble(), persist: true);
+      return;
+    }
     // 手势只调系统音量，播放器内部音量由独立设置控制。
     await VolumeController.instance.setVolume(volume / 100);
   }

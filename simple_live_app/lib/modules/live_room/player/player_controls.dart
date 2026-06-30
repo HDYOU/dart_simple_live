@@ -363,6 +363,51 @@ Widget _buildGestureLayer(
       behavior: HitTestBehavior.opaque,
       onTap: controller.onTap,
       onDoubleTapDown: controller.onDoubleTap,
+      onPanStart: (details) {
+        if (!_canUseDesktopVolumeDrag(controller, details.localPosition)) {
+          controller.desktopVolumeDragging = false;
+          return;
+        }
+        controller.desktopVolumeDragging = true;
+        controller.onVerticalDragStart(
+          DragStartDetails(
+            globalPosition: details.globalPosition,
+            localPosition: details.localPosition,
+          ),
+        );
+      },
+      onPanUpdate: (details) {
+        if (!controller.desktopVolumeDragging) {
+          return;
+        }
+        controller.onVerticalDragUpdate(
+          DragUpdateDetails(
+            globalPosition: details.globalPosition,
+            localPosition: details.localPosition,
+            delta: details.delta,
+            primaryDelta: details.delta.dy,
+          ),
+        );
+      },
+      onPanEnd: (details) {
+        if (!controller.desktopVolumeDragging) {
+          return;
+        }
+        controller.desktopVolumeDragging = false;
+        controller.onVerticalDragEnd(
+          DragEndDetails(
+            primaryVelocity: details.velocity.pixelsPerSecond.dy,
+            velocity: details.velocity,
+          ),
+        );
+      },
+      onPanCancel: () {
+        if (!controller.desktopVolumeDragging) {
+          return;
+        }
+        controller.desktopVolumeDragging = false;
+        controller.onVerticalDragEnd(DragEndDetails());
+      },
       onLongPress: !enableQuickAccessLongPress
           ? null
           : () {
@@ -377,6 +422,30 @@ Widget _buildGestureLayer(
       child: const SizedBox.expand(),
     ),
   );
+}
+
+bool _canUseDesktopVolumeDrag(
+  LiveRoomController controller,
+  Offset localPosition,
+) {
+  if (!(Platform.isWindows || Platform.isLinux)) {
+    return false;
+  }
+  if (controller.lockControlsState.value && controller.fullScreenState.value) {
+    return false;
+  }
+  if (!controller.showControlsState.value) {
+    return false;
+  }
+  final width = Get.width;
+  final height = Get.height;
+  if (width <= 0 || height <= 0) {
+    return false;
+  }
+  final inRightZone = localPosition.dx >= width * 0.72;
+  final inMiddleZone =
+      localPosition.dy >= height * 0.2 && localPosition.dy <= height * 0.8;
+  return inRightZone && inMiddleZone;
 }
 
 Widget _buildFullTopBar(
@@ -554,19 +623,32 @@ Widget _buildFullBottomBar(
             ),
             const Expanded(child: SizedBox()),
             if (!Platform.isAndroid && !Platform.isIOS)
-              IconButton(
-                key: volumeButtonKey,
-                onPressed: () {
+              MouseRegion(
+                onEnter: (_) {
                   controller.showVolumeSlider(
                     volumeButtonKey.currentContext!,
+                    keepAlive: true,
                   );
                 },
-                icon: Icon(
-                  controller.mutedState.value
-                      ? Icons.volume_off
-                      : Icons.volume_down,
-                  size: 24,
-                  color: Colors.white,
+                onExit: (_) {
+                  SmartDialog.dismiss(
+                    tag: LiveRoomController.volumeSliderDialogTag,
+                  );
+                },
+                child: IconButton(
+                  key: volumeButtonKey,
+                  onPressed: () {
+                    controller.showVolumeSlider(
+                      volumeButtonKey.currentContext!,
+                    );
+                  },
+                  icon: Icon(
+                    controller.mutedState.value
+                        ? Icons.volume_off
+                        : Icons.volume_down,
+                    size: 24,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             IconButton(
@@ -677,19 +759,32 @@ Widget _buildNormalBottomBar(
             ),
             const Expanded(child: SizedBox()),
             if (!Platform.isAndroid && !Platform.isIOS)
-              IconButton(
-                key: volumeButtonKey,
-                onPressed: () {
+              MouseRegion(
+                onEnter: (_) {
                   controller.showVolumeSlider(
                     volumeButtonKey.currentContext!,
+                    keepAlive: true,
                   );
                 },
-                icon: Icon(
-                  controller.mutedState.value
-                      ? Icons.volume_off
-                      : Icons.volume_down,
-                  size: 24,
-                  color: Colors.white,
+                onExit: (_) {
+                  SmartDialog.dismiss(
+                    tag: LiveRoomController.volumeSliderDialogTag,
+                  );
+                },
+                child: IconButton(
+                  key: volumeButtonKey,
+                  onPressed: () {
+                    controller.showVolumeSlider(
+                      volumeButtonKey.currentContext!,
+                    );
+                  },
+                  icon: Icon(
+                    controller.mutedState.value
+                        ? Icons.volume_off
+                        : Icons.volume_down,
+                    size: 24,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             IconButton(

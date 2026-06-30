@@ -129,40 +129,39 @@ class FollowUserItem extends StatelessWidget {
                 ),
               ),
             )
-          : (onRemove == null
-              ? (showSpecialMark && item.isSpecialFollow
-                  ? const SizedBox(
-                      width: 48,
-                      child: Center(
-                        child: Icon(
-                          Icons.star,
-                          color: Colors.amber,
-                        ),
-                      ),
-                    )
-                  : null)
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (onSpecialTap != null)
-                      IconButton(
-                        tooltip: item.isSpecialFollow ? "取消特别关注" : "特别关注",
-                        onPressed: () {
-                          onSpecialTap?.call();
-                        },
-                        icon: Icon(
-                          item.isSpecialFollow ? Icons.star : Icons.star_border,
-                          color: item.isSpecialFollow ? Colors.amber : null,
-                        ),
-                      ),
-                    IconButton(
-                      onPressed: () {
-                        onRemove?.call();
-                      },
-                      icon: const Icon(Remix.dislike_line),
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (onSpecialTap != null)
+                  IconButton(
+                    tooltip: item.isSpecialFollow ? "取消特别关注" : "特别关注",
+                    onPressed: () {
+                      onSpecialTap?.call();
+                    },
+                    icon: Icon(
+                      item.isSpecialFollow ? Icons.star : Icons.star_border,
+                      color: item.isSpecialFollow ? Colors.amber : null,
                     ),
-                  ],
-                )),
+                  )
+                else if (showSpecialMark && item.isSpecialFollow)
+                  const SizedBox(
+                    width: 48,
+                    child: Center(
+                      child: Icon(
+                        Icons.star,
+                        color: Colors.amber,
+                      ),
+                    ),
+                  ),
+                if (onRemove != null)
+                  IconButton(
+                    onPressed: () {
+                      onRemove?.call();
+                    },
+                    icon: const Icon(Remix.dislike_line),
+                  ),
+              ],
+            ),
       onTap: onTap,
       onLongPress: onLongPress,
     );

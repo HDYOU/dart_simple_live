@@ -673,8 +673,7 @@ class DouyinSite implements LiveSite {
     final stopwatch = Stopwatch()..start();
     var roomData = await _getRoomDataByHtml(webRid);
     var roomId = roomData["roomStore"]["roomInfo"]["room"]["id_str"].toString();
-    var userUniqueId = roomData["userStore"]["odin"]["user_unique_id"]
-        .toString();
+    var userUniqueId = resolveUserUniqueIdFromRoomData(roomData);
 
     var room = roomData["roomStore"]["roomInfo"]["room"];
     var owner = room["owner"];
@@ -719,13 +718,50 @@ class DouyinSite implements LiveSite {
     return detail;
   }
 
+  String resolveUserUniqueIdFromRoomData(dynamic roomData) {
+    final resolved = _resolveNestedString(roomData, const [
+      "userStore",
+      "odin",
+      "user_unique_id",
+    ]);
+    if (resolved != null && resolved.isNotEmpty) {
+      return resolved;
+    }
+
+    final fallback = _resolveNestedString(roomData, const [
+      "userStore",
+      "user",
+      "user_unique_id",
+    ]);
+    if (fallback != null && fallback.isNotEmpty) {
+      return fallback;
+    }
+
+    return generateRandomNumber(12).toString();
+  }
+
+  String? _resolveNestedString(dynamic source, List<String> path) {
+    dynamic current = source;
+    for (final key in path) {
+      if (current is! Map) {
+        return null;
+      }
+      current = current[key];
+      if (current == null) {
+        return null;
+      }
+    }
+    final value = current.toString().trim();
+    return value.isEmpty ? null : value;
+  }
+
   /// 读取用户的唯一ID
   /// - [webRid] 直播间RID
   // ignore: unused_element
   Future<String> _getUserUniqueId(String webRid) async {
     try {
       var webInfo = await _getRoomDataByHtml(webRid);
-      return webInfo["userStore"]["odin"]["user_unique_id"].toString();
+      return resolveUserUniqueIdFromRoomData(webInfo);
     } catch (e) {
       return generateRandomNumber(12).toString();
     }
@@ -1188,15 +1224,26 @@ class DouyinSite implements LiveSite {
     if (targetId.isEmpty) {
       return false;
     }
+    LiveRoomDetail? resolvedDetail;
     try {
       final status = await _tryGetLiveStatus(targetId);
+      if (status == true) {
+        return true;
+      }
+      resolvedDetail = await getRoomDetail(roomId: targetId);
+      if (resolvedDetail.status) {
+        return true;
+      }
       if (status != null) {
         return status;
       }
-      return false;
+      return resolvedDetail.status;
     } catch (e) {
       if (e is CoreError && e.statusCode == 444) {
         rethrow;
+      }
+      if (resolvedDetail != null) {
+        return resolvedDetail.status;
       }
       CoreLog.error(e);
       return false;
@@ -1204,7 +1251,7 @@ class DouyinSite implements LiveSite {
   }
 
   Future<bool?> _tryGetLiveStatus(String targetId) async {
-    final attempts = <Future<bool> Function()>[];
+    final attempts = <Future<bool?> Function()>[];
     if (targetId.length <= 16) {
       attempts.add(() => _getLiveStatusByWebRid(targetId));
       attempts.add(() => _getLiveStatusByRoomId(targetId));
@@ -1244,13 +1291,25 @@ class DouyinSite implements LiveSite {
     throw CoreError("抖音直播状态数据为空");
   }
 
-  Future<bool> _getLiveStatusByRoomId(String roomId) async {
+  Future<bool?> _getLiveStatusByRoomId(String roomId) async {
     final roomData = await _getRoomDataByRoomId(roomId);
     final room = roomData["data"]?["room"];
     if (room is! Map) {
-      return false;
+      return null;
     }
-    return _isDouyinLiveStatus(room);
+    final status = _parseDouyinStatus(
+      room["status"] ?? room["live_status"] ?? room["room_status"],
+    );
+    if (status == null) {
+      return null;
+    }
+    if (status == 4) {
+      final webRid = room["owner"]?["web_rid"]?.toString().trim() ?? "";
+      if (webRid.isNotEmpty) {
+        return _getLiveStatusByWebRid(webRid);
+      }
+    }
+    return status == 2;
   }
 
   bool _isDouyinLiveStatus(dynamic data) {

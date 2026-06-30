@@ -22,6 +22,8 @@ import 'package:simple_live_tv_app/app/sites.dart';
 import 'package:simple_live_tv_app/app/utils.dart';
 import 'package:simple_live_tv_app/models/db/follow_user.dart';
 import 'package:simple_live_tv_app/models/db/history.dart';
+import 'package:simple_live_tv_app/modules/live_room/live_room_controller.dart';
+import 'package:simple_live_tv_app/modules/live_room/player/player_controls.dart';
 import 'package:simple_live_tv_app/routes/app_navigation.dart';
 import 'package:simple_live_tv_app/routes/app_pages.dart';
 import 'package:simple_live_tv_app/routes/route_path.dart';
@@ -258,10 +260,20 @@ Future initServices() async {
 }
 
 class MyApp extends StatelessWidget {
+  static const MethodChannel _desktopShortcutChannel =
+      MethodChannel("simple_live_tv/desktop_shortcuts");
+  static bool _desktopShortcutHandlerBound = false;
+
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    if (!_desktopShortcutHandlerBound) {
+      _desktopShortcutChannel.setMethodCallHandler(
+        _handleDesktopShortcutMethod,
+      );
+      _desktopShortcutHandlerBound = true;
+    }
     final startupRoom = DesktopStartupArgs.startupRoom;
     return ScreenUtilInit(
       designSize: const Size(1920, 1080),
@@ -325,5 +337,29 @@ class MyApp extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<dynamic> _handleDesktopShortcutMethod(MethodCall call) async {
+    if (call.method != "shortcutKeyDown" || !isDesktop) {
+      return null;
+    }
+    final args = call.arguments;
+    if (args is! Map) {
+      return null;
+    }
+    final key = args["key"]?.toString().trim() ?? "";
+    if (key != "keyM") {
+      return null;
+    }
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    if (focusContext != null &&
+        focusContext.findAncestorWidgetOfExactType<EditableText>() != null) {
+      return null;
+    }
+    if (!Get.isRegistered<LiveRoomController>()) {
+      return null;
+    }
+    showPlayerSettings(Get.find<LiveRoomController>());
+    return null;
   }
 }

@@ -15,4 +15,9 @@ class CurrentRoomService extends GetxService {
     siteId.value = site.id;
     this.roomId.value = roomId;
   }
+
+  void clearRoom() {
+    siteId.value = "";
+    roomId.value = "";
+  }
 }

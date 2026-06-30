@@ -18,6 +18,8 @@ class FollowUserPage extends StatefulWidget {
 }
 
 class _FollowUserPageState extends State<FollowUserPage> {
+  static const double _cardHeight = 164;
+  static const double _rowStride = 168;
   final ScrollController _scrollController = ScrollController();
   final Map<String, AppFocusNode> _focusNodes = <String, AppFocusNode>{};
 
@@ -54,7 +56,7 @@ class _FollowUserPageState extends State<FollowUserPage> {
       return;
     }
     final row = index ~/ 3;
-    final targetOffset = (row * 172.w).toDouble();
+    final targetOffset = (row * _rowStride.w).toDouble();
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(
         targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
@@ -166,7 +168,7 @@ class _FollowUserPageState extends State<FollowUserPage> {
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
                         crossAxisSpacing: 48.w,
-                        mainAxisSpacing: 40.w,
+                        mainAxisSpacing: 24.w,
                         childAspectRatio: 2.75,
                       ),
                       itemCount: FollowUserService.instance.list.length,
@@ -175,7 +177,7 @@ class _FollowUserPageState extends State<FollowUserPage> {
                         final isCurrent = "${item.siteId}_${item.roomId}" ==
                             CurrentRoomService.instance.currentKey;
                         return SizedBox(
-                          height: 164.w,
+                          height: _cardHeight.w,
                           child: Obx(
                             () => Stack(
                               clipBehavior: Clip.none,

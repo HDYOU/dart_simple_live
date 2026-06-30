@@ -11,6 +11,7 @@ import 'package:simple_live_app/services/bilibili_account_service.dart';
 import 'package:simple_live_app/services/db_service.dart';
 import 'package:simple_live_app/services/douyin_account_service.dart';
 import 'package:simple_live_app/services/follow_service.dart';
+import 'package:simple_live_app/services/kuaishou_account_service.dart';
 import 'package:simple_live_app/services/live_subtitle_service.dart';
 import 'package:simple_live_app/services/local_storage_service.dart';
 import 'package:simple_live_core/simple_live_core.dart';
@@ -353,6 +354,21 @@ class ProfileBackupService extends GetxService {
             "",
           ),
         },
+        {
+          "siteId": Constant.kKuaishou,
+          "cookie": LocalStorageService.instance.getValue(
+            LocalStorageService.kKuaishouCookie,
+            "",
+          ),
+          "kww": LocalStorageService.instance.getValue(
+            LocalStorageService.kKuaishouKww,
+            "",
+          ),
+          "cookieExpiresAt": LocalStorageService.instance.getValue(
+            LocalStorageService.kKuaishouCookieExpiresAt,
+            0,
+          ),
+        },
       ],
     };
   }
@@ -522,6 +538,21 @@ class ProfileBackupService extends GetxService {
             DouyinAccountService.instance.clearCookie();
           } else {
             DouyinAccountService.instance.setCookie(cookie);
+          }
+          break;
+        case Constant.kKuaishou:
+          final kww = item["kww"]?.toString() ?? "";
+          final expiresAtMs = (item["cookieExpiresAt"] as num?)?.toInt() ?? 0;
+          if (cookie.isEmpty) {
+            KuaishouAccountService.instance.clearCookie();
+          } else {
+            KuaishouAccountService.instance.setCookie(
+              cookie,
+              kww: kww.isEmpty ? null : kww,
+              expiresAt: expiresAtMs > 0
+                  ? DateTime.fromMillisecondsSinceEpoch(expiresAtMs)
+                  : null,
+            );
           }
           break;
       }

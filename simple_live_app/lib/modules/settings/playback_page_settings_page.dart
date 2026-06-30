@@ -108,7 +108,7 @@ class PlaybackPageSettingsPage extends GetView<IndexedSettingsController> {
                 Obx(
                   () => SettingsMenu<int>(
                     title: "切换全屏",
-                    subtitle: "仅在直播间且输入框未聚焦时生效",
+                    subtitle: "仅在直播间且输入框未聚焦时生效，桌面端中文输入法下也支持",
                     value: AppSettingsController
                         .instance.liveRoomShortcutFullScreen.value,
                     valueMap: AppSettingsController.liveRoomShortcutOptions,
@@ -120,6 +120,7 @@ class PlaybackPageSettingsPage extends GetView<IndexedSettingsController> {
                 Obx(
                   () => SettingsMenu<int>(
                     title: "显示/隐藏弹幕",
+                    subtitle: "仅在直播间且输入框未聚焦时生效",
                     value: AppSettingsController
                         .instance.liveRoomShortcutDanmaku.value,
                     valueMap: AppSettingsController.liveRoomShortcutOptions,
@@ -131,6 +132,7 @@ class PlaybackPageSettingsPage extends GetView<IndexedSettingsController> {
                 Obx(
                   () => SettingsMenu<int>(
                     title: "静音/取消静音",
+                    subtitle: "仅在直播间且输入框未聚焦时生效",
                     value: AppSettingsController
                         .instance.liveRoomShortcutMute.value,
                     valueMap: AppSettingsController.liveRoomShortcutOptions,
@@ -142,6 +144,7 @@ class PlaybackPageSettingsPage extends GetView<IndexedSettingsController> {
                 Obx(
                   () => SettingsMenu<int>(
                     title: "刷新直播间",
+                    subtitle: "仅在直播间且输入框未聚焦时生效",
                     value: AppSettingsController
                         .instance.liveRoomShortcutRefresh.value,
                     valueMap: AppSettingsController.liveRoomShortcutOptions,
@@ -153,6 +156,7 @@ class PlaybackPageSettingsPage extends GetView<IndexedSettingsController> {
                 Obx(
                   () => SettingsMenu<int>(
                     title: "收起/展开聊天区",
+                    subtitle: "仅在直播间且输入框未聚焦时生效",
                     value: AppSettingsController
                         .instance.liveRoomShortcutToggleChat.value,
                     valueMap: AppSettingsController.liveRoomShortcutOptions,

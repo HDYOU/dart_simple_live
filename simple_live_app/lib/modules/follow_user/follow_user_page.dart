@@ -272,7 +272,7 @@ class FollowUserPage extends GetView<FollowUserController> {
                   child: PageGridView(
                     padding: const EdgeInsets.only(bottom: 96.0),
                     crossAxisSpacing: 12,
-                    mainAxisSpacing: 8,
+                    mainAxisSpacing: 4,
                     mainAxisExtent: 92,
                     useFixedGrid: true,
                     crossAxisCount: count,

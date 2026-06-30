@@ -320,14 +320,7 @@ class LiveRoomPage extends GetView<LiveRoomController> {
       }
       return buildPageUI();
     });
-    if (!Platform.isAndroid) {
-      return page;
-    }
-    return PiPSwitcher(
-      floating: controller.pip,
-      childWhenDisabled: page,
-      childWhenEnabled: buildMediaPlayer(),
-    );
+    return page;
   }
 
   Widget buildPageUI() {
@@ -602,6 +595,18 @@ class LiveRoomPage extends GetView<LiveRoomController> {
   }
 
   Widget buildMediaPlayer() {
+    final playerContent = _buildMediaPlayerContent();
+    if (!Platform.isAndroid) {
+      return playerContent;
+    }
+    return PiPSwitcher(
+      floating: controller.pip,
+      childWhenDisabled: playerContent,
+      childWhenEnabled: playerContent,
+    );
+  }
+
+  Widget _buildMediaPlayerContent() {
     var boxFit = BoxFit.contain;
     double? aspectRatio;
     if (AppSettingsController.instance.scaleMode.value == 0) {

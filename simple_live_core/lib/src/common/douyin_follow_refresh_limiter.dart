@@ -100,6 +100,12 @@ class DouyinFollowRefreshLimiter {
   bool get cooledDown => _cooledDown;
 
   Future<void> beforeRequest(int workerIndex) async {
+    if (_workerNextReadyAt.isEmpty) {
+      return;
+    }
+    final slotIndex = workerIndex >= 0
+        ? workerIndex % _workerNextReadyAt.length
+        : 0;
     while (true) {
       final now = DateTime.now();
       final pausedUntil = _pausedUntil;
@@ -107,12 +113,12 @@ class DouyinFollowRefreshLimiter {
         await Future.delayed(pausedUntil.difference(now));
         continue;
       }
-      final nextReadyAt = _workerNextReadyAt[workerIndex];
+      final nextReadyAt = _workerNextReadyAt[slotIndex];
       if (now.isBefore(nextReadyAt)) {
         await Future.delayed(nextReadyAt.difference(now));
         continue;
       }
-      _workerNextReadyAt[workerIndex] = DateTime.now().add(_currentInterval);
+      _workerNextReadyAt[slotIndex] = DateTime.now().add(_currentInterval);
       return;
     }
   }

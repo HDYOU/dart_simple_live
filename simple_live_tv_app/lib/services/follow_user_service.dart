@@ -19,8 +19,8 @@ import 'package:simple_live_tv_app/services/local_storage_service.dart';
 
 class FollowUserService extends BasePageController<FollowUser> {
   static const Duration updateStatusCooldown = Duration(seconds: 10);
+  static const Duration refreshProgressCompletionHold = Duration(seconds: 2);
   static const int paginationThreshold = 400;
-  static const int kDouyinGuestRefreshLimit = 100;
   static const String _refreshTaskStateStorageKey =
       LocalStorageService.kFollowRefreshTaskState;
   static const String _refreshTaskTargetsStorageKey =
@@ -38,6 +38,7 @@ class FollowUserService extends BasePageController<FollowUser> {
   var refreshProgress = const FollowRefreshProgress.idle().obs;
 
   Timer? updateTimer;
+  Timer? _refreshProgressResetTimer;
   bool needUpdate = true;
   int _updateGeneration = 0;
   DateTime? _lastUpdateStatusStartedAt;
@@ -224,40 +225,14 @@ class FollowUserService extends BasePageController<FollowUser> {
     required FollowRefreshScope scope,
     required bool hasFullDouyinCookie,
   }) {
-    if (!scope.includeAllNormals || hasFullDouyinCookie) {
-      return _RefreshTargetPolicyResult(
-        allowedTargets: orderedTargets,
-        deferredTargets: const [],
-      );
-    }
-
-    final allowed = <FollowUser>[];
-    final deferred = <FollowUser>[];
-    var allowedDouyinCount = 0;
-
-    for (final item in orderedTargets) {
-      if (item.siteId != Constant.kDouyin) {
-        allowed.add(item);
-        continue;
-      }
-      if (allowedDouyinCount < kDouyinGuestRefreshLimit) {
-        allowedDouyinCount++;
-        allowed.add(item);
-      } else {
-        deferred.add(item);
-      }
-    }
-
-    final toastMessage = deferred.isEmpty
-        ? ""
-        : "抖音本次仅刷新前 $kDouyinGuestRefreshLimit 个，剩余需要完整 Cookie";
     return _RefreshTargetPolicyResult(
-      allowedTargets: allowed,
-      deferredTargets: deferred,
-      toastMessage: toastMessage,
+      allowedTargets: orderedTargets,
+      deferredTargets: const [],
+      toastMessage: hasFullDouyinCookie
+          ? ""
+          : "抖音未登录时将自动降速刷新；若出现 444，会暂停并保留剩余任务供后续继续。",
     );
   }
-
   List<FollowUser> _distinctFollowUsers(Iterable<FollowUser> items) {
     final result = <FollowUser>[];
     final seenIds = <String>{};
@@ -510,6 +485,7 @@ class FollowUserService extends BasePageController<FollowUser> {
     _lastUpdateStatusStartedAt = now;
     final generation = ++_updateGeneration;
     final automatic = resolvedScope.automatic;
+    _cancelRefreshProgressReset();
     if (updating.value) {
       Log.logPrint("已有关注状态刷新任务，旧任务会被新任务替换");
     }
@@ -577,8 +553,9 @@ class FollowUserService extends BasePageController<FollowUser> {
       var completed = resumeTask ? resumedSuccessCount + resumedFailedCount : 0;
       var successCount = resumeTask ? resumedSuccessCount : 0;
       var failedCount = resumeTask ? resumedFailedCount : 0;
-      final deferredCount = filteredTargets.deferredTargets.length;
+      var deferredCount = filteredTargets.deferredTargets.length;
       var limitedCount = 0;
+      var pausedForResume = false;
 
       if (resolvedScope.includeAllNormals) {
         unawaited(
@@ -613,7 +590,7 @@ class FollowUserService extends BasePageController<FollowUser> {
         final detail = [
           "成功 $successCount",
           if (failedCount > 0) "失败 $failedCount",
-          if (deferredCount > 0) "未执行 $deferredCount",
+          if (deferredCount > 0) "待续跑 $deferredCount",
         ].join("  ");
         _setRefreshProgress(
           active: active,
@@ -634,7 +611,7 @@ class FollowUserService extends BasePageController<FollowUser> {
 
       Future<void> worker(int workerIndex) async {
         while (taskQueue.isNotEmpty) {
-          if (generation != _updateGeneration) {
+          if (generation != _updateGeneration || pausedForResume) {
             return;
           }
           final item = taskQueue.removeFirst();
@@ -651,7 +628,9 @@ class FollowUserService extends BasePageController<FollowUser> {
             limitedCount++;
           }
           final targetKey = _refreshTargetKey(item);
-          pendingKeys.remove(targetKey);
+          if (!result.keepPending) {
+            pendingKeys.remove(targetKey);
+          }
           switch (result.outcome) {
             case _FollowRefreshItemOutcome.success:
               successCount++;
@@ -664,6 +643,10 @@ class FollowUserService extends BasePageController<FollowUser> {
             case _FollowRefreshItemOutcome.deferred:
             case _FollowRefreshItemOutcome.skipped:
               break;
+          }
+          if (result.pauseRemaining) {
+            pausedForResume = true;
+            deferredCount = filteredTargets.deferredTargets.length + pendingKeys.length;
           }
           if (resolvedScope.includeAllNormals) {
             unawaited(
@@ -703,16 +686,29 @@ class FollowUserService extends BasePageController<FollowUser> {
           "failed=$failedCount deferred=$deferredCount limitedObserved=$limitedCount",
         );
       }
+      if (pendingKeys.isNotEmpty) {
+        deferredCount = filteredTargets.deferredTargets.length + pendingKeys.length;
+      }
       updateProgress(active: false, done: true);
       if (resolvedScope.includeAllNormals) {
-        await _clearPersistedRefreshTask();
+        if (pendingKeys.isEmpty) {
+          await _clearPersistedRefreshTask();
+        } else {
+          await _persistRefreshTask(
+            scope: resolvedScope,
+            total: followList.length,
+            orderedKeys: orderedAllowedKeys,
+            pendingKeys: pendingKeys,
+            successCount: successCount,
+            failedCount: failedCount,
+            deferredCount: deferredCount,
+          );
+        }
       }
-      sortList();
-      Log.logPrint("关注状态更新完成");
     } finally {
       if (generation == _updateGeneration) {
         updating.value = false;
-        _resetRefreshProgress();
+        _finishRefreshProgressLifecycle(generation);
       }
     }
   }
@@ -750,7 +746,37 @@ class FollowUserService extends BasePageController<FollowUser> {
   }
 
   void _resetRefreshProgress() {
+    _cancelRefreshProgressReset();
     refreshProgress.value = const FollowRefreshProgress.idle();
+  }
+
+  void _cancelRefreshProgressReset() {
+    _refreshProgressResetTimer?.cancel();
+    _refreshProgressResetTimer = null;
+  }
+
+  void _finishRefreshProgressLifecycle(int generation) {
+    if (refreshProgress.value.completed) {
+      _scheduleRefreshProgressReset(generation);
+      return;
+    }
+    _resetRefreshProgress();
+  }
+
+  void _scheduleRefreshProgressReset(int generation) {
+    _cancelRefreshProgressReset();
+    _refreshProgressResetTimer = Timer(
+      refreshProgressCompletionHold,
+      () {
+        if (generation != _updateGeneration) {
+          return;
+        }
+        if (updating.value || !refreshProgress.value.completed) {
+          return;
+        }
+        _resetRefreshProgress();
+      },
+    );
   }
 
   Future<_FollowRefreshItemResult> _updateLiveStatus(
@@ -772,6 +798,13 @@ class FollowUserService extends BasePageController<FollowUser> {
         douyinLimiter.onSuccess();
       }
       item.liveStatus.value = isLiving ? 2 : 1;
+      if (item.siteId == Constant.kDouyin) {
+        await _reconcileDouyinFollowIdentity(
+          item,
+          site.liveSite,
+          generation: generation,
+        );
+      }
       return const _FollowRefreshItemResult(_FollowRefreshItemOutcome.success);
     } catch (e) {
       if (generation != null && generation != _updateGeneration) {
@@ -788,11 +821,40 @@ class FollowUserService extends BasePageController<FollowUser> {
         }
       }
       Log.logPrint(e);
+      if (limited) {
+        return const _FollowRefreshItemResult(
+          _FollowRefreshItemOutcome.deferred,
+          limited: true,
+          keepPending: true,
+          pauseRemaining: true,
+        );
+      }
       return _FollowRefreshItemResult(
         _FollowRefreshItemOutcome.failed,
         limited: limited,
       );
     }
+  }
+
+  Future<void> _reconcileDouyinFollowIdentity(
+    FollowUser item,
+    dynamic liveSite, {
+    required int? generation,
+  }) async {
+    final detail = await liveSite.getRoomDetail(roomId: item.roomId);
+    if (generation != null && generation != _updateGeneration) {
+      return;
+    }
+    final resolvedRoomId = detail.roomId.trim();
+    if (resolvedRoomId.isNotEmpty && resolvedRoomId != item.roomId) {
+      final oldId = item.id;
+      final newId = "${item.siteId}_$resolvedRoomId";
+      await DBService.instance.deleteFollow(oldId);
+      item.id = newId;
+      item.roomId = resolvedRoomId;
+      await DBService.instance.addFollow(item);
+    }
+    item.liveStatus.value = detail.status ? 2 : 1;
   }
 
   bool _isDouyinLimited(FollowUser item, Object error) {
@@ -827,6 +889,7 @@ class FollowUserService extends BasePageController<FollowUser> {
   void onClose() {
     _updateGeneration++;
     updating.value = false;
+    _cancelRefreshProgressReset();
     _resetRefreshProgress();
     updateTimer?.cancel();
     subscription?.cancel();
@@ -844,8 +907,15 @@ enum _FollowRefreshItemOutcome {
 class _FollowRefreshItemResult {
   final _FollowRefreshItemOutcome outcome;
   final bool limited;
+  final bool keepPending;
+  final bool pauseRemaining;
 
-  const _FollowRefreshItemResult(this.outcome, {this.limited = false});
+  const _FollowRefreshItemResult(
+    this.outcome, {
+    this.limited = false,
+    this.keepPending = false,
+    this.pauseRemaining = false,
+  });
 }
 
 class _RefreshTargetPolicyResult {

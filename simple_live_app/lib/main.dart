@@ -31,6 +31,7 @@ import 'package:simple_live_app/services/current_room_service.dart';
 import 'package:simple_live_app/services/douyin_account_service.dart';
 import 'package:simple_live_app/services/db_service.dart';
 import 'package:simple_live_app/services/follow_service.dart';
+import 'package:simple_live_app/services/kuaishou_account_service.dart';
 import 'package:simple_live_app/services/live_subtitle_service.dart';
 import 'package:simple_live_app/services/local_storage_service.dart';
 import 'package:simple_live_app/services/profile_backup_service.dart';
@@ -358,10 +359,10 @@ class _DesktopWindowLifecycle with WindowListener {
       return;
     }
     _closing = true;
-    unawaited(_closeApp());
+    unawaited(_closeAppGracefully());
   }
 
-  Future<void> _closeApp() async {
+  Future<void> _closeAppGracefully() async {
     _saveTimer?.cancel();
     await _closeStep(
       "保存窗口位置",
@@ -382,7 +383,11 @@ class _DesktopWindowLifecycle with WindowListener {
         SyncService.instance.onClose();
       }
     });
-    _closeStepSync("关闭日志写入", Log.disposeWriter);
+    await _closeStep(
+      "关闭日志写入",
+      Log.disposeWriter,
+      timeout: const Duration(milliseconds: 600),
+    );
 
     windowManager.removeListener(this);
     if (Platform.isWindows) {
@@ -392,7 +397,11 @@ class _DesktopWindowLifecycle with WindowListener {
         timeout: const Duration(milliseconds: 300),
       );
     }
-    await windowManager.destroy();
+    await _closeStep(
+      "请求窗口关闭",
+      () => windowManager.close(),
+      timeout: const Duration(milliseconds: 800),
+    );
   }
 
   Future<void> _closeStep(
@@ -437,6 +446,8 @@ Future initServices() async {
 
   Get.put(DouyinAccountService());
 
+  Get.put(KuaishouAccountService());
+
   Get.put(FollowService());
   Get.put(LiveSubtitleService());
   Get.put(ProfileBackupService());
@@ -476,10 +487,20 @@ void initCoreLog() {
 }
 
 class MyApp extends StatelessWidget {
+  static const MethodChannel _desktopShortcutChannel =
+      MethodChannel("simple_live/desktop_shortcuts");
+  static bool _desktopShortcutHandlerBound = false;
+
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    if (!_desktopShortcutHandlerBound) {
+      _desktopShortcutChannel.setMethodCallHandler(
+        _handleDesktopShortcutMethod,
+      );
+      _desktopShortcutHandlerBound = true;
+    }
     bool isDynamicColor = AppSettingsController.instance.isDynamic.value;
     Color styleColor = Color(AppSettingsController.instance.styleColor.value);
     return DynamicColorBuilder(
@@ -642,10 +663,52 @@ class MyApp extends StatelessWidget {
       return;
     }
     final settings = AppSettingsController.instance;
-    final keyId = event.logicalKey.keyId;
+    final logicalKeyId = event.logicalKey.keyId;
+    final physicalKey = event.physicalKey;
+
     bool matches(int shortcut) {
-      return shortcut != AppSettingsController.kShortcutDisabled &&
-          shortcut == keyId;
+      if (shortcut == AppSettingsController.kShortcutDisabled) {
+        return false;
+      }
+      if (shortcut == logicalKeyId) {
+        return true;
+      }
+      // Prefer physical letter keys as a fallback so desktop shortcuts still
+      // work when an IME changes the logical key mapping.
+      if (shortcut == LogicalKeyboardKey.keyF.keyId) {
+        return physicalKey == PhysicalKeyboardKey.keyF;
+      }
+      if (shortcut == LogicalKeyboardKey.keyD.keyId) {
+        return physicalKey == PhysicalKeyboardKey.keyD;
+      }
+      if (shortcut == LogicalKeyboardKey.keyM.keyId) {
+        return physicalKey == PhysicalKeyboardKey.keyM;
+      }
+      if (shortcut == LogicalKeyboardKey.keyR.keyId) {
+        return physicalKey == PhysicalKeyboardKey.keyR;
+      }
+      if (shortcut == LogicalKeyboardKey.keyC.keyId) {
+        return physicalKey == PhysicalKeyboardKey.keyC;
+      }
+      if (shortcut == LogicalKeyboardKey.keyQ.keyId) {
+        return physicalKey == PhysicalKeyboardKey.keyQ;
+      }
+      if (shortcut == LogicalKeyboardKey.keyE.keyId) {
+        return physicalKey == PhysicalKeyboardKey.keyE;
+      }
+      if (shortcut == LogicalKeyboardKey.keyT.keyId) {
+        return physicalKey == PhysicalKeyboardKey.keyT;
+      }
+      if (shortcut == LogicalKeyboardKey.keyG.keyId) {
+        return physicalKey == PhysicalKeyboardKey.keyG;
+      }
+      if (shortcut == LogicalKeyboardKey.keyB.keyId) {
+        return physicalKey == PhysicalKeyboardKey.keyB;
+      }
+      if (shortcut == LogicalKeyboardKey.keyN.keyId) {
+        return physicalKey == PhysicalKeyboardKey.keyN;
+      }
+      return false;
     }
 
     if (matches(settings.liveRoomShortcutFullScreen.value)) {
@@ -666,6 +729,92 @@ class MyApp extends StatelessWidget {
     }
     if (matches(settings.liveRoomShortcutToggleChat.value) &&
         (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      liveRoomController.toggleDesktopSidePanel();
+    }
+  }
+
+  Future<dynamic> _handleDesktopShortcutMethod(MethodCall call) async {
+    if (call.method != "shortcutKeyDown") {
+      return null;
+    }
+    if (!(Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      return null;
+    }
+    final args = call.arguments;
+    if (args is! Map) {
+      return null;
+    }
+    final key = args["key"]?.toString().trim() ?? "";
+    if (key.isEmpty) {
+      return null;
+    }
+    await _handleDesktopShortcutByPhysicalKey(key);
+    return null;
+  }
+
+  Future<void> _handleDesktopShortcutByPhysicalKey(
+      String physicalKeyName) async {
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    if (focusContext != null &&
+        focusContext.findAncestorWidgetOfExactType<EditableText>() != null) {
+      return;
+    }
+
+    if (!Get.isRegistered<LiveRoomController>()) {
+      return;
+    }
+    final liveRoomController = Get.find<LiveRoomController>();
+    final settings = AppSettingsController.instance;
+
+    bool matchesDesktopShortcut(int shortcut) {
+      if (shortcut == AppSettingsController.kShortcutDisabled) {
+        return false;
+      }
+      switch (physicalKeyName) {
+        case "keyF":
+          return shortcut == LogicalKeyboardKey.keyF.keyId;
+        case "keyD":
+          return shortcut == LogicalKeyboardKey.keyD.keyId;
+        case "keyM":
+          return shortcut == LogicalKeyboardKey.keyM.keyId;
+        case "keyR":
+          return shortcut == LogicalKeyboardKey.keyR.keyId;
+        case "keyC":
+          return shortcut == LogicalKeyboardKey.keyC.keyId;
+        case "keyQ":
+          return shortcut == LogicalKeyboardKey.keyQ.keyId;
+        case "keyE":
+          return shortcut == LogicalKeyboardKey.keyE.keyId;
+        case "keyT":
+          return shortcut == LogicalKeyboardKey.keyT.keyId;
+        case "keyG":
+          return shortcut == LogicalKeyboardKey.keyG.keyId;
+        case "keyB":
+          return shortcut == LogicalKeyboardKey.keyB.keyId;
+        case "keyN":
+          return shortcut == LogicalKeyboardKey.keyN.keyId;
+        default:
+          return false;
+      }
+    }
+
+    if (matchesDesktopShortcut(settings.liveRoomShortcutFullScreen.value)) {
+      await liveRoomController.toggleFullScreen();
+      return;
+    }
+    if (matchesDesktopShortcut(settings.liveRoomShortcutDanmaku.value)) {
+      liveRoomController.toggleDanmakuByShortcut();
+      return;
+    }
+    if (matchesDesktopShortcut(settings.liveRoomShortcutMute.value)) {
+      await liveRoomController.toggleMute();
+      return;
+    }
+    if (matchesDesktopShortcut(settings.liveRoomShortcutRefresh.value)) {
+      liveRoomController.refreshRoom();
+      return;
+    }
+    if (matchesDesktopShortcut(settings.liveRoomShortcutToggleChat.value)) {
       liveRoomController.toggleDesktopSidePanel();
     }
   }

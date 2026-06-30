@@ -28,6 +28,8 @@ class FlutterWindow : public Win32Window {
   void ConfigureWindowChromeChannel();
   void ApplyFullscreenChrome();
   void RestoreWindowChrome();
+  bool HandleShortcutKeyDown(WPARAM wparam);
+  bool SendShortcutEvent(const std::string& key);
 
   // The project to run.
   flutter::DartProject project_;
@@ -37,6 +39,8 @@ class FlutterWindow : public Win32Window {
 
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       window_chrome_channel_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      shortcut_channel_;
   LONG_PTR windowed_style_ = 0;
   LONG_PTR windowed_ex_style_ = 0;
   bool fullscreen_chrome_applied_ = false;

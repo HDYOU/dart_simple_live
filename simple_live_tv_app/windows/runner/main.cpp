@@ -11,6 +11,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
       ::CreateMutexW(nullptr, TRUE, L"June6699.SimpleLiveTV.PrimaryInstance");
   const bool secondary_instance = primary_instance_mutex != nullptr &&
                                   ::GetLastError() == ERROR_ALREADY_EXISTS;
+  bool com_initialized = false;
 
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
@@ -20,7 +21,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.
-  ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  const HRESULT co_initialize_result =
+      ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  com_initialized = SUCCEEDED(co_initialize_result) ||
+                    co_initialize_result == RPC_E_CHANGED_MODE;
 
   flutter::DartProject project(L"data");
 
@@ -47,7 +51,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
   if (!window.Create(L"simple_live_tv_app", origin, size)) {
-    ::CoUninitialize();
+    if (com_initialized) {
+      ::CoUninitialize();
+    }
     if (primary_instance_mutex != nullptr) {
       if (!secondary_instance) {
         ::ReleaseMutex(primary_instance_mutex);
@@ -64,7 +70,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     ::DispatchMessage(&msg);
   }
 
-  ::CoUninitialize();
+  if (com_initialized) {
+    ::CoUninitialize();
+  }
   if (primary_instance_mutex != nullptr) {
     if (!secondary_instance) {
       ::ReleaseMutex(primary_instance_mutex);

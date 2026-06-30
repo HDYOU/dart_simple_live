@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -105,7 +106,7 @@ class OtherSettingsController extends BaseController {
         loadLogFiles();
       });
     } else {
-      Log.disposeWriter();
+      unawaited(Log.disposeWriter());
     }
   }
 
