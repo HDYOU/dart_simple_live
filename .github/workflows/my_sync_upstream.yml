@@ -1,0 +1,72 @@
+name: Sync Upstream with Rebase
+permissions:
+  contents: write
+  actions: write
+on:
+  push:
+    paths:
+      - '.github/workflows/my_sync_upstream.yml'
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+  watch:
+    types: [started]
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repo code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Configure Git
+        run: |
+          git config --global user.name "${{ github.repository_owner }}"
+          git config --global user.email "${{ github.repository_owner }}@users.noreply.github.com"
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/June6699/dart_simple_live.git
+          git fetch upstream
+      - name: Rebase upstream exclude workflows
+        id: check_update
+        run: |
+          CURRENT_BRANCH=master
+          git checkout ${CURRENT_BRANCH}
+          
+          # 暂存 workflows，rebase 时不被上游覆盖
+          git stash push -m "keep-workflows" .github/workflows/
+          
+          LOCAL=$(git rev-list --count $CURRENT_BRANCH)
+          git rebase upstream/${CURRENT_BRANCH}
+          
+          # 恢复本地 workflows，拒绝上游覆盖
+          git stash pop || true
+          
+          UPSTREAM=$(git rev-list --count $CURRENT_BRANCH)
+          if [ "$LOCAL" = "$UPSTREAM" ]; then
+            echo "has_update=false" >> $GITHUB_OUTPUT
+            echo "无更新"
+          else
+            echo "has_update=true" >> $GITHUB_OUTPUT
+            echo "有新提交"
+          fi
+      - name: Push rebased code to origin
+        if: ${{ steps.check_update.outputs.has_update == 'true' }}
+        run: |
+          git push origin HEAD:master --force-with-lease
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Trigger my-test-build
+        if: ${{ steps.check_update.outputs.has_update == 'true' }}
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: my-test-build
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 3
