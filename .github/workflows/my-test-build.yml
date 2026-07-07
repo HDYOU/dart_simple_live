@@ -158,9 +158,9 @@ jobs:
       - name: Install appdmg
         if: startsWith(matrix.platform,'macos')
         run: npm install -g appdmg
-      # 设置flutter_distributor环境
-      - name: Install flutter_distributor
-        run: dart pub global activate flutter_distributor
+      # 设置fastforge环境
+      - name: Install fastforge
+        run: dart pub global activate fastforge
       # 打包APK
       - name: Build APK
         if: startsWith(matrix.platform,'android')
@@ -194,7 +194,7 @@ jobs:
         if: startsWith(matrix.platform,'macos')
         run: |
           cd ${{ env.projcect_path }}
-          flutter_distributor package --platform macos --targets dmg,zip --skip-clean
+          fastforge package --platform macos --targets dmg,zip --skip-clean
        # 安装 Linux 依赖
       - name: Install Linux Dependencies
         if: startsWith(matrix.platform,'linux')
@@ -205,13 +205,13 @@ jobs:
         if: startsWith(matrix.platform,'linux')
         run: |
           cd ${{ env.projcect_path }}
-          flutter_distributor package --platform linux --targets deb,zip --skip-clean
+          fastforge package --platform linux --targets deb,zip --skip-clean
       # build Windows ZIP\MSIX
       - name: Build Windows
         if: startsWith(matrix.platform,'windows')
         run: |
           cd ${{ env.projcect_path }}
-          flutter_distributor package --platform windows --targets msix,zip --skip-clean
+          fastforge package --platform windows --targets msix,zip --skip-clean
       # 打包文件 至 Artifacts
       - name: Upload Package to Artifacts
         uses: actions/upload-artifact@v4
