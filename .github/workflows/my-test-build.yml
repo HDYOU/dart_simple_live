@@ -1,0 +1,290 @@
+name: my-test-build
+on:
+  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      ssh:
+        description: 'SSH connection to Actions'
+        required: false
+        default: 'false'
+  watch:
+    types: [ started ]
+  push:
+    branches:
+      - master
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+      - '!.github/workflows/my-test-build.yml'
+      # only one run
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true  # true false
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - platform: android
+            os: ubuntu-latest
+          - platform: android-tv
+            os: ubuntu-latest
+          - platform: ios
+            os: macos-latest
+          - platform: windows
+            os: windows-latest
+            arch: amd64
+          - platform: linux
+            os: ubuntu-latest
+            arch: amd64
+          - platform: macos
+            os: macos-13
+            arch: amd64
+          # - platform: macos
+            # os: macos-latest
+            # arch: arm64
+    steps:
+      - name: Set Projcect Path Base
+        run: |
+          echo "projcect_path=simple_live_app" >> $GITHUB_ENV
+      - name: Set Projcect Path android-tv
+        if: startsWith(matrix.platform,'android-tv')
+        run: |
+           echo "projcect_path=simple_live_tv_app" >> $GITHUB_ENV
+      - name: Set Projcect Path windows
+        if: startsWith(matrix.platform,'windows')
+        run: |
+           echo "projcect_path=simple_live_app" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Show Projcect Path
+        run: |
+           echo "projcect_path:  ${{ env.projcect_path }}"
+      - name: Setup Android SDK
+        if: startsWith(matrix.platform,'android')
+        run: |
+          # 后台运行
+          nohup ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3" > ~/out.txt 2>&1 &
+          # nohup ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;35.0.2" > ~/out.txt 2>&1 &
+          # nohup ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;35.1.20" > ~/out.txt 2>&1 &
+          # nohup ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;26.1.1" > ~/out.txt 2>&1 &
+          # nohup ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3" > ~/out.txt 2>&1 &
+      - name: Update Linux 
+        if: startsWith(matrix.platform,'linux')
+        run: |
+          # 后台运行
+          nohup sudo apt-get update > ~/out.txt 2>&1 &
+  
+          
+      - name: Setup Mingw64
+        if: startsWith(matrix.platform,'windows')
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: mingw64
+          install: mingw-w64-x86_64-gcc
+          update: true
+      - name: Set Mingw64 Env
+        if: startsWith(matrix.platform,'windows')
+        run: |
+          echo "${{ runner.temp }}\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Check Matrix
+        run: |
+          echo "Running on ${{ matrix.os }}"
+          echo "Arch: ${{ runner.arch }}"
+          gcc --version
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Setup JAVA
+        if: startsWith(matrix.platform,'android')
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: 17
+          cache: "gradle"
+      - name: Setup NDK
+        if: startsWith(matrix.platform,'android')
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r26b
+          add-to-path: true
+          link-to-sdk: true
+      - name: Download Android keystore
+        id: android_keystore
+        if: startsWith(matrix.platform,'android')
+        uses: timheuer/base64-to-file@v1.2
+        with:
+          fileName: keystore.jks
+          encodedString: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: Setup Android Signing
+        if: startsWith(matrix.platform,'android')
+        run: |
+          # key
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > ${{ env.projcect_path }}/android/app/keystore.jks
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> ${{ env.projcect_path }}/android/local.properties
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> ${{ env.projcect_path }}/android/local.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> ${{ env.projcect_path }}/android/local.properties
+          
+          echo "storeFile=${{ steps.android_keystore.outputs.filePath }}" > ${{ env.projcect_path }}/android/key.properties
+          echo "storePassword=${{ secrets.KEY_ALIAS }}" >> ${{ env.projcect_path }}/android/key.properties
+          echo "keyPassword=${{ secrets.STORE_PASSWORD }}" >> ${{ env.projcect_path }}/android/key.properties
+          echo "keyAlias=${{ secrets.KEY_PASSWORD }}" >> ${{ env.projcect_path }}/android/key.properties
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.22.x
+          channel: 'stable'
+          cache: true
+      # 打开MAC Desktop支持
+      - name: Enable Flutter MAC Desktop
+        if: startsWith(matrix.platform,'macos')
+        run: flutter config --enable-macos-desktop
+      # 打开Linux Desktop支持
+      - name: Enable Flutter Linux Desktop
+        if: startsWith(matrix.platform,'linux')
+        run: flutter config --enable-linux-desktop
+      
+      # 打开Windows Desktop支持
+      - name: Enable Flutter Windows Desktop
+        if: startsWith(matrix.platform,'windows')
+        run: flutter config --enable-windows-desktop
+      - name: Get Flutter Dependency
+        run: |
+          cd ${{ env.projcect_path }}
+          flutter pub get
+      # 安装appdmg npm install -g appdmg
+      - name: Install appdmg
+        if: startsWith(matrix.platform,'macos')
+        run: npm install -g appdmg
+      # 设置flutter_distributor环境
+      - name: Install flutter_distributor
+        run: dart pub global activate flutter_distributor
+      # 打包APK
+      - name: Build APK
+        if: startsWith(matrix.platform,'android')
+        run: |
+          cd ${{ env.projcect_path }}
+          flutter build apk --release --split-per-abi
+      - name: Rename Android TV APK Name
+        if: startsWith(matrix.platform,'android-tv')
+        run: |
+          sudo apt-get install rename
+          cd ${{ env.projcect_path }}/build/app/outputs/flutter-apk/
+          rename 's/app/android-tv/' *.apk
+      #打包iOS
+      - name: Build IPA
+        if: startsWith(matrix.platform,'ios')
+        run: |
+          cd ${{ env.projcect_path }}
+          flutter build ios --release --no-codesign
+      #创建未签名ipa
+      - name: Create IPA
+        if: startsWith(matrix.platform,'ios')
+        run: |
+          cd ${{ env.projcect_path }}
+          mkdir build/ios/iphoneos/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/Runner.app
+          cd build/ios/iphoneos/
+          zip -q -r ios_no_sign.ipa Payload
+          cd ../../..
+       # 打包MAC
+      - name: Build MacOS
+        if: startsWith(matrix.platform,'macos')
+        run: |
+          cd ${{ env.projcect_path }}
+          flutter_distributor package --platform macos --targets dmg,zip --skip-clean
+       # 安装 Linux 依赖
+      - name: Install Linux Dependencies
+        if: startsWith(matrix.platform,'linux')
+        run: |
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libmpv-dev mpv
+      # 打包 Linux ZIP\DMG
+      - name: Build Linux
+        if: startsWith(matrix.platform,'linux')
+        run: |
+          cd ${{ env.projcect_path }}
+          flutter_distributor package --platform linux --targets deb,zip --skip-clean
+      # build Windows ZIP\MSIX
+      - name: Build Windows
+        if: startsWith(matrix.platform,'windows')
+        run: |
+          cd ${{ env.projcect_path }}
+          flutter_distributor package --platform windows --targets msix,zip --skip-clean
+      # 打包文件 至 Artifacts
+      - name: Upload Package to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-${{ matrix.platform }}${{ matrix.arch && format('-{0}', matrix.arch) }}
+          retention-days: 90
+          overwrite: true
+          path: |
+            ${{ env.projcect_path }}/build/*/*/*/*.apk
+            ${{ env.projcect_path }}/build/*/*/*.ipa
+            ${{ env.projcect_path }}/build/*/*/*.dmg
+            ${{ env.projcect_path }}/build/*/*/*.zip
+            ${{ env.projcect_path }}/build/*/*/*.deb
+            ${{ env.projcect_path }}/build/*/*/*.msix
+            ${{ env.projcect_path }}/build/*/*/*.exe
+  upload-release:
+    # if: ${{ !contains(github.ref, '+') }}
+    permissions: write-all
+    needs: [ build ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download
+        uses: actions/download-artifact@v4
+        with:
+          path: ./dist/
+          pattern: artifact-*
+          merge-multiple: true
+      - name: Move File
+        run: |
+          mkdir -p dist_2
+          find dist -type f | xargs -i mv {} dist_2
+          ls dist_2
+      #读取版本信息
+      - name: Read version
+        id: version
+        uses: juliangruber/read-file-action@v1
+        with:
+          path: assets/app_version.json
+      - name: Echo version
+        run: echo "${{ fromJson(steps.version.outputs.content).version }}"
+      - name: Echo version content
+        run: echo "${{ fromJson(steps.version.outputs.content).version_desc }}"
+      #上传至Release
+      - name: Upload Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "${{ fromJson(steps.version.outputs.content).version }}"
+          name: "${{ fromJson(steps.version.outputs.content).version }}"
+          body: "${{ fromJson(steps.version.outputs.content).version_desc }}"
+          prerelease: ${{ fromJson(steps.version.outputs.content).prerelease }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: ./dist_2/*
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Publish Release
+      #   uses: ncipollo/release-action@v1
+      #   with:
+      #     name: "${{ fromJson(steps.version.outputs.content).version }}"
+      #     tag: "${{ fromJson(steps.version.outputs.content).version }}"
+      #     body: "${{ fromJson(steps.version.outputs.content).version_desc }}"
+      #     prerelease: ${{ fromJson(steps.version.outputs.content).prerelease }}
+      #     artifacts: ./dist_2/*
+      #完成
+      - run: echo "🍏 This job's status is ${{ job.status }}."
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 3
