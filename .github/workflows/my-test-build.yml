@@ -31,20 +31,20 @@ jobs:
             os: ubuntu-latest
           - platform: android-tv
             os: ubuntu-latest
-          - platform: ios
-            os: macos-latest
-          - platform: windows
-            os: windows-latest
-            arch: amd64
+          # - platform: ios
+          #   os: macos-latest
+          # - platform: windows
+          #   os: windows-latest
+          #   arch: amd64
           - platform: linux
             os: ubuntu-latest
             arch: amd64
-          - platform: macos
-            os: macos-13
-            arch: amd64
           # - platform: macos
-            # os: macos-latest
-            # arch: arm64
+          #   os: macos-13
+          #   arch: amd64
+          # - platform: macos
+          #   os: macos-latest
+          #   arch: arm64
     steps:
       - name: Set Projcect Path Base
         run: |
